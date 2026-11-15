@@ -1,7 +1,11 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../middleware/authMiddleware.js';
-import { createSurveySchema } from '../validators/surveyValidator.js';
-import { surveyService } from '../services/surveyService.js';
+import {
+  createSurveySchema,
+  updateSurveySchema,
+  questionInputSchema,
+} from '../validators/surveyValidator.js';
+import { surveyService, MAX_SURVEY_QUESTIONS } from '../services/surveyService.js';
 import { AppError, handleControllerError } from '../utils/errors.js';
 import { Role } from '@prisma/client';
 
@@ -13,6 +17,16 @@ export class SurveyController {
           error: {
             code: 'UNAUTHORIZED',
             message: 'Authentication required',
+          },
+        });
+        return;
+      }
+
+      if (Array.isArray(req.body?.questions) && req.body.questions.length > MAX_SURVEY_QUESTIONS) {
+        res.status(422).json({
+          error: {
+            code: 'QUESTION_LIMIT_EXCEEDED',
+            message: `A survey can have at most ${MAX_SURVEY_QUESTIONS} questions (BR-03)`,
           },
         });
         return;
@@ -36,6 +50,54 @@ export class SurveyController {
       });
     } catch (error) {
       next(error);
+    }
+  }
+
+  async updateSurvey(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const surveyId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      const parsed = updateSurveySchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({
+          error: {
+            code: 'INVALID_PAYLOAD',
+            message: 'Validation failed for survey update',
+            details: parsed.error.format(),
+          },
+        });
+        return;
+      }
+
+      const updated = await surveyService.updateDraftSurvey(surveyId, req.user!.id, parsed.data);
+      res.status(200).json({ data: updated });
+    } catch (error) {
+      handleControllerError(error, res, next);
+    }
+  }
+
+  async addQuestion(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const surveyId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      const parsed = questionInputSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({
+          error: {
+            code: 'INVALID_PAYLOAD',
+            message: 'Validation failed for question creation',
+            details: parsed.error.format(),
+          },
+        });
+        return;
+      }
+
+      const createdQuestion = await surveyService.addQuestionToSurvey(
+        surveyId,
+        req.user!.id,
+        parsed.data
+      );
+      res.status(201).json({ data: createdQuestion });
+    } catch (error) {
+      handleControllerError(error, res, next);
     }
   }
 

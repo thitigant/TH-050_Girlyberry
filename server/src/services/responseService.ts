@@ -296,6 +296,52 @@ export class ResponseService {
 
     return response;
   }
+
+  async getMyResponseHistory(respondentId: string) {
+    // BR-08: Scoped strictly to authenticated respondentId
+    return prisma.response.findMany({
+      where: {
+        respondentId,
+      },
+      orderBy: {
+        submittedAt: 'desc',
+      },
+      include: {
+        Survey: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            status: true,
+          },
+        },
+        Answer: {
+          include: {
+            Question: {
+              select: {
+                id: true,
+                text: true,
+                type: true,
+                displayOrder: true,
+              },
+            },
+            QuestionOption: {
+              select: {
+                id: true,
+                label: true,
+                displayOrder: true,
+              },
+            },
+          },
+          orderBy: {
+            Question: {
+              displayOrder: 'asc',
+            },
+          },
+        },
+      },
+    });
+  }
 }
 
 export const responseService = new ResponseService();

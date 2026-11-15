@@ -22,6 +22,20 @@ router.get('/:id', requireAuth, (req, res, next) =>
   surveyController.getSurvey(req, res, next)
 );
 
+// Update Draft Survey metadata (PATCH / PUT)
+router.patch('/:id', requireAuth, requireRole(Role.SURVEY_OWNER), (req, res, next) =>
+  surveyController.updateSurvey(req, res, next)
+);
+
+router.put('/:id', requireAuth, requireRole(Role.SURVEY_OWNER), (req, res, next) =>
+  surveyController.updateSurvey(req, res, next)
+);
+
+// Add Question to Draft Survey
+router.post('/:id/questions', requireAuth, requireRole(Role.SURVEY_OWNER), (req, res, next) =>
+  surveyController.addQuestion(req, res, next)
+);
+
 // Lifecycle routes (Publish & Close)
 router.post('/:id/publish', requireAuth, requireRole(Role.SURVEY_OWNER), (req, res, next) =>
   surveyController.publishSurvey(req, res, next)

@@ -9,9 +9,9 @@
 
 ### 1.1 Architecture Pattern: Full-Stack Modular Monolith
 UniPulse is engineered as a full-stack modular monolith featuring clean separation of concerns:
-1. **Presentation Layer (Frontend):** React 18 Single Page Application (SPA) powered by Vite, Tailwind CSS, and TanStack React Query for declarative state management, asynchronous data caching, and responsive UI rendering.
-2. **Application / API Layer (Backend):** Node.js runtime executing Express.js with TypeScript in strict mode. Architecture follows controller-service-repository patterns with isolated middleware layers for authentication, schema validation (Zod), and uniform error dispatching.
-3. **Persistence Layer (Database):** Relational PostgreSQL 15 managed via Prisma ORM for type-safe query construction, automated schema migrations, and relational integrity enforcement.
+1. **Presentation Layer (Frontend):** React 19 Single Page Application (SPA) powered by Vite, TypeScript, and semantic CSS *(Tailwind CSS & TanStack React Query planned for Sprint 2/3)*.
+2. **Application / API Layer (Backend):** Node.js runtime executing Express 4 (`^4.21.2`) with TypeScript in strict mode. Architecture follows controller-service-repository patterns with isolated middleware layers for authentication, schema validation (Zod), and uniform error dispatching.
+3. **Persistence Layer (Database):** Relational PostgreSQL 16 managed via Prisma ORM for type-safe query construction, automated schema migrations, and relational integrity enforcement.
 
 ```mermaid
 flowchart TD
@@ -214,7 +214,7 @@ All endpoints follow standard resource naming with uniform prefix `/api/v1/`:
 | `POST /auth/logout` | POST | Reject (401) | Allow | Allow | Revokes current token in database |
 | `GET /surveys` | GET | Reject (401) | Allow (Published only) | Allow (Owner's drafts + all published) | Scoped by role query filter |
 | `POST /surveys` | POST | Reject (401) | Reject (403) | Allow | Restricted to Survey Owners |
-| `GET /surveys/:id` | GET | Reject (401) | Allow (If published) | Allow | Owner sees own drafts; others 403 on draft |
+| `GET /surveys/:id` | GET | Reject (401) | Allow (If published) | Allow | Owner sees own drafts; non-owners get 404 on draft (`NFR-11`) |
 | `PATCH /surveys/:id` | PATCH | Reject (401) | Reject (403) | Allow (Owner only) | `survey.ownerId === auth.userId` & `status === DRAFT` |
 | `POST /surveys/:id/publish` | POST | Reject (401) | Reject (403) | Allow (Owner only) | `survey.ownerId === auth.userId` & $\ge 1$ question |
 | `POST /surveys/:id/close` | POST | Reject (401) | Reject (403) | Allow (Owner only) | `survey.ownerId === auth.userId` & `status === PUBLISHED` |

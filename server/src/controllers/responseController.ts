@@ -60,6 +60,17 @@ export class ResponseController {
       handleControllerError(error, res, next, 'RESPONSE_ERROR');
     }
   }
+
+  async getMyHistory(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const history = await responseService.getMyResponseHistory(req.user!.id);
+      res.status(200).json({
+        data: history,
+      });
+    } catch (error) {
+      handleControllerError(error, res, next, 'RESPONSE_ERROR');
+    }
+  }
 }
 
 export const responseController = new ResponseController();

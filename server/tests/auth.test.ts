@@ -6,6 +6,7 @@ import { prisma } from '../src/db/prisma.js';
 describe('F-01 Authentication and Session Management', () => {
   let validToken: string;
   let userStudent: any;
+  const registeredEmail = `new_student_${Date.now()}@unipulse.edu`;
 
   beforeAll(async () => {
     // Ensure seeded account exists
@@ -18,11 +19,68 @@ describe('F-01 Authentication and Session Management', () => {
   });
 
   afterAll(async () => {
+    await prisma.user.deleteMany({ where: { email: registeredEmail } });
     await prisma.$disconnect();
   });
 
+  describe('POST /api/v1/auth/register', () => {
+    it('TEST-01 (AC-01, FR-01): should register a new RESPONDENT user (201 Created) and omit passwordHash', async () => {
+      const res = await request(app)
+        .post('/api/v1/auth/register')
+        .send({
+          email: registeredEmail,
+          password: 'Password123!',
+          fullName: 'New Student Tester',
+          role: 'RESPONDENT',
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data).toHaveProperty('token');
+      expect(res.body.data.user).toMatchObject({
+        email: registeredEmail,
+        name: 'New Student Tester',
+        role: 'RESPONDENT',
+      });
+      expect(res.body.data.user.passwordHash).toBeUndefined();
+      expect(res.body.data.user.password).toBeUndefined();
+    });
+
+    it('TEST-30 (AC-01, BR-11, NFR-05): should store bcrypt cost-12 passwordHash in DB and never store plaintext', async () => {
+      const dbUser = await prisma.user.findUnique({
+        where: { email: registeredEmail },
+      });
+      expect(dbUser).not.toBeNull();
+      expect(dbUser!.passwordHash).not.toBe('Password123!');
+      expect(dbUser!.passwordHash).toMatch(/^\$2[ab]\$12\$/);
+    });
+
+    it('TEST-22 (AC-01, BR-01): should reject invalid role enum (400) and block SURVEY_OWNER self-escalation (403)', async () => {
+      const resInvalidRole = await request(app)
+        .post('/api/v1/auth/register')
+        .send({
+          email: `admin_${Date.now()}@unipulse.edu`,
+          password: 'Password123!',
+          fullName: 'Invalid Role User',
+          role: 'ADMIN',
+        });
+      expect(resInvalidRole.status).toBe(400);
+      expect(resInvalidRole.body.error.code).toBe('INVALID_PAYLOAD');
+
+      const resEscalation = await request(app)
+        .post('/api/v1/auth/register')
+        .send({
+          email: `escalate_${Date.now()}@unipulse.edu`,
+          password: 'Password123!',
+          fullName: 'Escalation Attempt',
+          role: 'SURVEY_OWNER',
+        });
+      expect(resEscalation.status).toBe(403);
+      expect(resEscalation.body.error.code).toBe('FORBIDDEN_ROLE');
+    });
+  });
+
   describe('POST /api/auth/login', () => {
-    it('TEST-01 (AC-01 & AC-02): should successfully authenticate with valid credentials and return JWT with role', async () => {
+    it('TEST-02 (AC-02): should successfully authenticate with valid credentials and return JWT with role', async () => {
       const response = await request(app)
         .post('/api/auth/login')
         .send({
@@ -42,7 +100,7 @@ describe('F-01 Authentication and Session Management', () => {
       validToken = response.body.data.token;
     });
 
-    it('TEST-02 (AC-02): should return generic 401 when password does not match', async () => {
+    it('TEST-03 (AC-02): should return generic 401 when password does not match', async () => {
       const response = await request(app)
         .post('/api/auth/login')
         .send({
@@ -56,7 +114,7 @@ describe('F-01 Authentication and Session Management', () => {
       expect(response.body.error.message).toBe('Invalid email or password');
     });
 
-    it('TEST-03 (AC-02): should return generic 401 when email is not registered', async () => {
+    it('TEST-03b (AC-02): should return generic 401 when email is not registered', async () => {
       const response = await request(app)
         .post('/api/auth/login')
         .send({
@@ -115,7 +173,7 @@ describe('F-01 Authentication and Session Management', () => {
   });
 
   describe('POST /api/auth/logout', () => {
-    it('TEST-06 (AC-04): should revoke token in RevokedToken table and reject immediate reuse', async () => {
+    it('TEST-06 & TEST-07 (AC-04): should revoke token in RevokedToken table and reject immediate reuse with 401 TOKEN_REVOKED', async () => {
       // 1. Log in to get fresh token
       const loginRes = await request(app)
         .post('/api/auth/login')

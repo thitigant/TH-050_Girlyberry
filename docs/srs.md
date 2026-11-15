@@ -108,8 +108,8 @@ In university environments and academic organizations, gathering structured feed
 | **NFR-03** | Interface Consistency | All API responses must adhere to uniform JSON envelopes: `{ data: ... }` for success and `{ error: { code, message, details } }` for errors. | Sprint 1: API contract test suite. |
 | **NFR-04** | Data Persistence | All domain entities must persist in a relational PostgreSQL database surviving container/service restart with zero data loss. | Sprint 1: Docker restart integration verification. |
 | **NFR-05** | Credential Security | Passwords must be hashed using bcrypt (cost 12); no plaintext credentials stored or logged. | Sprint 1: Database inspection test. |
-| **NFR-06** | Usability & States | UI must provide explicit Loading, Empty, Success, and Error states for all user journeys. | Sprint 1: E2E Playwright journey tests. |
-| **NFR-07** | Maintainability & Types | TypeScript strict mode enabled across backend and frontend, achieving zero compiler errors. | Sprint 1: Build command check (`tsc --noEmit`). |
+| **NFR-06** | Usability & States | UI must provide explicit Loading, Empty, Success, and Error states for all user journeys. | Sprint 1: Live browser walkthrough & React state inspection (Playwright E2E planned Sprint 2). |
+| **NFR-07** | Maintainability & Types | TypeScript strict mode enabled across backend and frontend, achieving zero compiler errors. | Sprint 1: Build & typecheck command (`npm run typecheck`). |
 | **NFR-08** | Container Readiness | Entire application must package into standardized Docker containers with externalized environment configuration. | Sprint 2 / Lab 5: Docker build and run verification. |
 | **NFR-09** | Cloud Deployability | Application must be deployable to GCP Cloud Run with Cloud SQL database connectivity. | Sprint 2 / Lab 5: GCP deployment check. |
 | **NFR-10** | Seed Reproducibility | `npm run db:seed` command must execute idempotently, populating deterministic test accounts and sample surveys. | Sprint 1: CI seed test execution. |
@@ -120,7 +120,7 @@ In university environments and academic organizations, gathering structured feed
 
 ## 7. Architectural Decisions & Assumptions
 
-- **D-01: Modular Monolith Architecture:** Selected React 18 (Vite SPA) + Node.js (Express API) + Prisma ORM + PostgreSQL. This provides high development velocity, end-to-end TypeScript safety, and satisfies the course requirement without microservice operational overhead.
+- **D-01: Modular Monolith Architecture:** Selected React 19 (Vite SPA) + Node.js (Express 4 API) + Prisma ORM + PostgreSQL 16. This provides high development velocity, end-to-end TypeScript safety, and satisfies the course requirement without microservice operational overhead.
 - **D-02: Stateless JWT with Database Blacklist:** Authentication uses signed HS256 JSON Web Tokens with a 24-hour expiration. Logout records the token JTI in a `RevokedToken` table to achieve immediate revocation while keeping standard requests fast.
 - **D-03: Relational Integrity for Duplicate Prevention:** Enforce the single-submission rule (`BR-06`) at the database level via a composite unique index on `Response(surveyId, respondentId)`, preventing race conditions during concurrent submissions.
 - **D-04: Authoritative Server Calculations:** All aggregate statistics (means, response totals, percentages) are calculated authoritatively on the backend using SQL aggregation rather than in client memory.

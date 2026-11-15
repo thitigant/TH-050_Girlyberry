@@ -593,5 +593,18 @@ describe('F-06 & F-07 Response Submission and Duplicate Prevention', () => {
       expect(res.status).toBe(200);
       expect(res.body.data.id).toBe(createdResponseId);
     });
+
+    it('F-10 (AC-15, BR-08): should return scoped submission history via GET /api/v1/responses/my-history', async () => {
+      const res = await request(app)
+        .get('/api/v1/responses/my-history')
+        .set('Authorization', `Bearer ${student1Token}`);
+
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(res.body.data.some((r: any) => r.id === createdResponseId)).toBe(true);
+      res.body.data.forEach((r: any) => {
+        expect(r.respondentId).toBe(student1Id);
+      });
+    });
   });
 });

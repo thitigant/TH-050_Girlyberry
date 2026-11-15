@@ -3,6 +3,7 @@ import request from 'supertest';
 import { app } from '../src/app.js';
 import { prisma } from '../src/db/prisma.js';
 import { signToken } from '../src/utils/jwt.js';
+import { canPublishSurvey, canAddQuestion } from '../src/services/surveyService.js';
 
 describe('F-03 Create Draft Survey with Validation Limits', () => {
   let ownerToken: string;
@@ -157,8 +158,8 @@ describe('F-03 Create Draft Survey with Validation Limits', () => {
       expect(res.body.error.code).toBe('INVALID_PAYLOAD');
     });
 
-    it('TEST-12 (AC-12): should reject survey with more than 30 questions', async () => {
-      const questions = Array.from({ length: 31 }, (_, i) => ({
+    it('TEST-13 & TEST-24 (AC-10, BR-03): should reject survey with more than 25 questions with 422 QUESTION_LIMIT_EXCEEDED', async () => {
+      const questions = Array.from({ length: 26 }, (_, i) => ({
         text: `Question ${i + 1}`,
         type: 'SHORT_TEXT',
       }));
@@ -167,12 +168,12 @@ describe('F-03 Create Draft Survey with Validation Limits', () => {
         .post('/api/surveys')
         .set('Authorization', `Bearer ${ownerToken}`)
         .send({
-          title: 'Overloaded Survey',
+          title: 'Overloaded Survey Boundary',
           questions,
         });
 
-      expect(res.status).toBe(400);
-      expect(res.body.error.code).toBe('INVALID_PAYLOAD');
+      expect(res.status).toBe(422);
+      expect(res.body.error.code).toBe('QUESTION_LIMIT_EXCEEDED');
     });
   });
 
@@ -197,6 +198,77 @@ describe('F-03 Create Draft Survey with Validation Limits', () => {
       expect(res.status).toBe(200);
       expect(res.body.data.id).toBe(createdSurveyId);
       expect(res.body.data.Question).toHaveLength(3);
+    });
+  });
+
+  describe('PATCH /api/v1/surveys/:id, POST /api/v1/surveys/:id/questions & DELETE (F-04, BR-03, BR-04, BR-14)', () => {
+    it('TEST-23 & TEST-24 (Unit): canPublishSurvey and canAddQuestion enforce BR-02 and BR-03 boundaries', () => {
+      expect(canPublishSurvey({ title: 'Valid Survey Title', status: 'DRAFT', questionCount: 0 })).toBe(false);
+      expect(canPublishSurvey({ title: 'Valid Survey Title', status: 'DRAFT', questionCount: 1 })).toBe(true);
+      expect(canAddQuestion(24)).toBe(true);
+      expect(canAddQuestion(25)).toBe(false);
+    });
+
+    it('should update DRAFT survey metadata and add a question via POST /api/v1/surveys/:id/questions', async () => {
+      const patchRes = await request(app)
+        .patch(`/api/v1/surveys/${createdSurveyId}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ title: 'Updated Midterm Course Experience Survey' });
+
+      expect(patchRes.status).toBe(200);
+      expect(patchRes.body.data.title).toBe('Updated Midterm Course Experience Survey');
+
+      const addQRes = await request(app)
+        .post(`/api/v1/surveys/${createdSurveyId}/questions`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          prompt: 'Rate the lab documentation clarity',
+          questionType: 'RATING',
+          isRequired: true,
+          orderIndex: 4,
+        });
+
+      expect(addQRes.status).toBe(201);
+      expect(addQRes.body.data.text).toBe('Rate the lab documentation clarity');
+    });
+
+    it('TEST-17 & TEST-25 (AC-11, BR-04): should reject editing metadata or adding questions after survey is PUBLISHED', async () => {
+      const pubRes = await request(app)
+        .post(`/api/v1/surveys/${createdSurveyId}/publish`)
+        .set('Authorization', `Bearer ${ownerToken}`);
+      expect(pubRes.status).toBe(200);
+
+      const patchRes = await request(app)
+        .patch(`/api/v1/surveys/${createdSurveyId}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ title: 'Tampered Title After Publish' });
+      expect(patchRes.status).toBe(400);
+      expect(patchRes.body.error.code).toBe('SURVEY_IMMUTABLE');
+
+      const addQRes = await request(app)
+        .post(`/api/v1/surveys/${createdSurveyId}/questions`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          text: 'Late question',
+          type: 'SHORT_TEXT',
+        });
+      expect(addQRes.status).toBe(400);
+      expect(addQRes.body.error.code).toBe('SURVEY_NOT_IN_DRAFT');
+    });
+
+    it('TEST-33 (AC-08, BR-14): should delete survey and cascade delete child questions cleanly', async () => {
+      const delRes = await request(app)
+        .delete(`/api/v1/surveys/${createdSurveyId}`)
+        .set('Authorization', `Bearer ${ownerToken}`);
+
+      expect(delRes.status).toBe(200);
+      expect(delRes.body.data.deleted).toBe(true);
+
+      const remainingQuestions = await prisma.question.count({
+        where: { surveyId: createdSurveyId },
+      });
+      expect(remainingQuestions).toBe(0);
+      createdSurveyId = '';
     });
   });
 });

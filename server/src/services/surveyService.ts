@@ -1,8 +1,24 @@
 import crypto from 'crypto';
 import { prisma } from '../db/prisma.js';
-import { CreateSurveyInput } from '../validators/surveyValidator.js';
+import { CreateSurveyInput, UpdateSurveyInput, QuestionInput } from '../validators/surveyValidator.js';
 import { SurveyStatus, ResponseMode } from '@prisma/client';
 import { AppError } from '../utils/errors.js';
+
+export const MAX_SURVEY_QUESTIONS = 25;
+
+export function canPublishSurvey(survey: { title?: string; status?: string; questionCount: number }): boolean {
+  const trimmedTitle = (survey.title || '').trim();
+  return (
+    survey.status === SurveyStatus.DRAFT &&
+    trimmedTitle.length >= 5 &&
+    trimmedTitle.length <= 120 &&
+    survey.questionCount >= 1
+  );
+}
+
+export function canAddQuestion(currentQuestionCount: number): boolean {
+  return currentQuestionCount < MAX_SURVEY_QUESTIONS;
+}
 
 export class SurveyService {
   async createDraftSurvey(ownerId: string, input: CreateSurveyInput) {
@@ -301,6 +317,112 @@ export class SurveyService {
     });
   }
 
+  async updateDraftSurvey(surveyId: string, ownerId: string, input: UpdateSurveyInput) {
+    const survey = await prisma.survey.findUnique({
+      where: { id: surveyId },
+    });
+
+    if (!survey) {
+      throw new AppError(404, 'SURVEY_NOT_FOUND', 'Survey not found');
+    }
+
+    if (survey.ownerId !== ownerId) {
+      throw new AppError(403, 'FORBIDDEN_OWNERSHIP', 'Access denied. You do not own this survey.');
+    }
+
+    // BR-04: Immutability of survey metadata after publishing/closing
+    if (survey.status !== SurveyStatus.DRAFT) {
+      throw new AppError(
+        400,
+        'SURVEY_IMMUTABLE',
+        `Cannot modify survey metadata when status is '${survey.status}'. Survey must be in DRAFT status.`
+      );
+    }
+
+    return prisma.survey.update({
+      where: { id: surveyId },
+      data: {
+        ...(input.title !== undefined ? { title: input.title } : {}),
+        ...(input.description !== undefined ? { description: input.description } : {}),
+        updatedAt: new Date(),
+      },
+      include: {
+        Question: {
+          orderBy: { displayOrder: 'asc' },
+          include: {
+            QuestionOption: {
+              orderBy: { displayOrder: 'asc' },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async addQuestionToSurvey(surveyId: string, ownerId: string, input: QuestionInput) {
+    const survey = await prisma.survey.findUnique({
+      where: { id: surveyId },
+      include: {
+        _count: {
+          select: { Question: true },
+        },
+      },
+    });
+
+    if (!survey) {
+      throw new AppError(404, 'SURVEY_NOT_FOUND', 'Survey not found');
+    }
+
+    if (survey.ownerId !== ownerId) {
+      throw new AppError(403, 'FORBIDDEN_OWNERSHIP', 'Access denied. You do not own this survey.');
+    }
+
+    // BR-04: Questions cannot be added once a survey is PUBLISHED or CLOSED
+    if (survey.status !== SurveyStatus.DRAFT) {
+      throw new AppError(
+        400,
+        'SURVEY_NOT_IN_DRAFT',
+        `Cannot add or modify questions when survey status is '${survey.status}'.`
+      );
+    }
+
+    // BR-03: Maximum 25 questions per survey
+    if (!canAddQuestion(survey._count.Question)) {
+      throw new AppError(
+        422,
+        'QUESTION_LIMIT_EXCEEDED',
+        `A survey can contain at most ${MAX_SURVEY_QUESTIONS} questions.`
+      );
+    }
+
+    const questionId = `qst_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+    const nextOrder = input.displayOrder ?? survey._count.Question + 1;
+    const optionsData = (input.options || []).map((optLabel, idx) => ({
+      id: `opt_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`,
+      label: optLabel,
+      displayOrder: idx + 1,
+    }));
+
+    return prisma.question.create({
+      data: {
+        id: questionId,
+        surveyId,
+        text: input.text,
+        type: input.type,
+        isRequired: input.isRequired ?? true,
+        displayOrder: nextOrder,
+        QuestionOption: {
+          create: optionsData,
+        },
+      },
+      include: {
+        QuestionOption: {
+          orderBy: { displayOrder: 'asc' },
+        },
+      },
+    });
+  }
+
   async deleteSurvey(surveyId: string, ownerId: string) {
     const survey = await prisma.survey.findUnique({
       where: { id: surveyId },
@@ -314,9 +436,12 @@ export class SurveyService {
       throw new AppError(403, 'FORBIDDEN_OWNERSHIP', 'Access denied. You do not own this survey.');
     }
 
-    await prisma.survey.delete({
-      where: { id: surveyId },
-    });
+    // BR-14: Cascade delete child answers, responses, options, and questions cleanly
+    await prisma.$transaction([
+      prisma.answer.deleteMany({ where: { Question: { surveyId } } }),
+      prisma.response.deleteMany({ where: { surveyId } }),
+      prisma.survey.delete({ where: { id: surveyId } }),
+    ]);
 
     return { id: surveyId, deleted: true };
   }

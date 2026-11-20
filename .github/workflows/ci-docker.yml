@@ -1,0 +1,73 @@
+name: CI and Docker Build
+
+on:
+  pull_request:
+    branches: [staging, main]
+  push:
+    branches: [staging, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-docker:
+    name: test-and-docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: survey
+          POSTGRES_PASSWORD: changeme
+          POSTGRES_DB: survey
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U survey -d survey"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      DATABASE_URL: postgresql://survey:changeme@127.0.0.1:5432/survey?schema=public
+      JWT_SECRET: ci-test-jwt-secret-not-for-production
+      JWT_EXPIRES_IN: 60m
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install backend dependencies
+        run: npm --prefix server ci
+
+      - name: Install frontend dependencies
+        run: npm --prefix client ci
+
+      - name: Generate Prisma client, push schema, and seed database
+        run: |
+          npm run prisma:generate
+          npm run prisma:db:push
+          npm run prisma:seed
+
+      - name: Run backend automated tests
+        run: npm run test:server
+
+      - name: Run frontend typecheck and lint
+        run: npm run test:client
+
+      - name: Build backend and frontend
+        run: |
+          npm run build:server
+          npm run build:client
+
+      - name: Verify production Docker image build
+        run: docker build --tag "unipulse-ci:${GITHUB_SHA}" .

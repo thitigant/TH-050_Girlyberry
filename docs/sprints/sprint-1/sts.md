@@ -29,7 +29,7 @@ The Sprint 1 verification strategy establishes comprehensive multi-level automat
 | **TEST-10** | `AC-08` | Boundary | Survey creation payload with title < 5 characters or > 120 characters. | `POST /api/v1/surveys` | HTTP 422 Unprocessable Entity; validation error details returned. |
 | **TEST-11** | `AC-09` | Integration | Owner adds a valid Rating question to existing draft survey. | `POST /api/v1/surveys/:id/questions` | HTTP 201 Created; Question persisted with `orderIndex`. |
 | **TEST-12** | `AC-09` | Integration | Owner adds Single Choice question with options. | `POST /api/v1/surveys/:id/questions` | HTTP 201 Created; Question and options saved via cascade. |
-| **TEST-13** | `AC-10` | Boundary | Draft survey already has 25 questions; owner attempts 26th. | `POST /api/v1/surveys/:id/questions` | HTTP 422 Unprocessable Entity; code `QUESTION_LIMIT_EXCEEDED`. |
+| **TEST-13** | `AC-10` | Boundary | Draft survey already has 30 questions; owner attempts 31st. | `POST /api/v1/surveys/:id/questions` | HTTP 422 Unprocessable Entity; code `QUESTION_LIMIT_EXCEEDED`. |
 | **TEST-14** | `AC-17` | DB / TDD | Respondent attempts second submission for same survey. | `POST /api/v1/surveys/:id/responses` | HTTP 409 Conflict; code `DUPLICATE_SUBMISSION`; DB unique constraint fires. |
 | **TEST-15** | `AC-12` | Integration | Owner publishes draft survey containing 2 configured questions. | `POST /api/v1/surveys/:id/publish` | HTTP 200 OK; Survey status updated to `PUBLISHED`. |
 | **TEST-16** | `AC-13` | Rule / TDD | Owner attempts to publish draft survey containing 0 questions. | `POST /api/v1/surveys/:id/publish` | HTTP 422 Unprocessable Entity; code `EMPTY_SURVEY_CANNOT_PUBLISH`. |
@@ -40,7 +40,7 @@ The Sprint 1 verification strategy establishes comprehensive multi-level automat
 | **TEST-21** | `AC-18` | Rule / TDD | Survey Owner attempts to submit a response to their own survey. | `POST /api/v1/surveys/:id/responses` | HTTP 403 Forbidden; code `OWNER_CANNOT_RESPOND`. |
 | **TEST-22** | `AC-01` | Unit | Role string other than `SURVEY_OWNER` or `RESPONDENT` (e.g., `ADMIN`). | Registration validator | Zod validation fails; returns invalid enum error. |
 | **TEST-23** | `AC-12` | Unit / TDD | Domain service rule checking publish precondition. | `canPublishSurvey(survey)` | Returns false when questions array is empty. |
-| **TEST-24** | `AC-10` | Unit | Domain service question limit boundary check ($N=25$). | `canAddQuestion(count)` | Returns false when count is 25. |
+| **TEST-24** | `AC-10` | Unit | Domain service question limit boundary check ($N=25$). | `canAddQuestion(count)` | Returns false when count is 30. |
 | **TEST-25** | `AC-11` | Integration | Attempting to update title of a `PUBLISHED` survey. | `PATCH /api/v1/surveys/:id` | HTTP 400 Bad Request; code `SURVEY_IMMUTABLE`. |
 | **TEST-26** | `AC-15` | Integration | Valid respondent submits answers to published survey. | `POST /api/v1/surveys/:id/responses` | HTTP 201 Created; Response record created with foreign keys. |
 | **TEST-27** | `AC-18` | Security | Owner token passed to submission route for own survey. | `POST /api/v1/surveys/:id/responses` | HTTP 403 Forbidden; rejected at service layer. |

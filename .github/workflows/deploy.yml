@@ -98,7 +98,7 @@ jobs:
         run: |
           PORT_ARGS=()
           if [ -n "$APP_PORT" ]; then PORT_ARGS=(--port "$APP_PORT"); fi
-          gcloud run deploy "$SERVICE_NAME" --image "$IMAGE" --region "$REGION" --project "$PROJECT_ID" "${PORT_ARGS[@]}" --quiet
+          gcloud run deploy "$SERVICE_NAME" --image "$IMAGE" --region "$REGION" --project "$PROJECT_ID" --update-secrets=JWT_SECRET=s17b15028-app-secret-1:latest "${PORT_ARGS[@]}" --quiet
 
       - name: Summary
         run: |

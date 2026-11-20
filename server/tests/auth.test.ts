@@ -30,7 +30,8 @@ describe('F-01 Authentication and Session Management', () => {
           password: 'Password123!',
         });
 
-      expect(response.status).toBe(200);
+      // Intentional failing assertion for Lab 5 R-06 / C-02 required check quality gate demo (DO NOT MERGE)
+      expect(response.status).toBe(500);
       expect(response.body).toHaveProperty('data');
       expect(response.body.data).toHaveProperty('token');
       expect(response.body.data.user).toMatchObject({
@@ -89,7 +90,8 @@ describe('F-01 Authentication and Session Management', () => {
         .get('/api/auth/me')
         .set('Authorization', `Bearer ${validToken}`);
 
-      expect(response.status).toBe(200);
+      // Intentional failing assertion for Lab 5 R-06 / C-02 required check quality gate demo (DO NOT MERGE)
+      expect(response.status).toBe(500);
       expect(response.body.data).toMatchObject({
         email: 'student1@unipulse.edu',
         role: 'RESPONDENT',

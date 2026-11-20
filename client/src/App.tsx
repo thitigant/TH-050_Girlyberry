@@ -261,14 +261,99 @@ function UniPulseMain() {
     }
   };
 
-  const syncUserSessionData = (user: AuthUser) => {
+  const syncUserSessionData = async (user: AuthUser) => {
     if (!user.token) return;
+    let activeSurveys = surveys;
+
+    try {
+      const listRes = await fetch('/api/surveys', {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      if (listRes.ok) {
+        const listBody = await listRes.json().catch(() => null);
+        if (Array.isArray(listBody?.data)) {
+          const categoryMap = new Map(INITIAL_SURVEYS.map((s) => [s.id, s.category]));
+          const detailed = await Promise.all(
+            listBody.data.map(async (item: {
+              id: string;
+              title: string;
+              description?: string | null;
+              status: Survey['status'];
+              ownerId: string;
+              createdAt: string;
+              publishedAt?: string | null;
+              closedAt?: string | null;
+            }) => {
+              let questions: Survey['questions'] = [];
+              try {
+                const detailRes = await fetch(`/api/surveys/${item.id}`, {
+                  headers: { Authorization: `Bearer ${user.token}` },
+                });
+                if (detailRes.ok) {
+                  const detailBody = await detailRes.json().catch(() => null);
+                  const rawQuestions = detailBody?.data?.Question ?? detailBody?.data?.questions ?? [];
+                  if (Array.isArray(rawQuestions)) {
+                    questions = rawQuestions.map((q: {
+                      id: string;
+                      text?: string;
+                      prompt?: string;
+                      type?: Survey['questions'][number]['questionType'];
+                      questionType?: Survey['questions'][number]['questionType'];
+                      isRequired?: boolean;
+                      displayOrder?: number;
+                      order?: number;
+                      QuestionOption?: Array<{ id: string; label: string; displayOrder?: number; order?: number }>;
+                      options?: Array<{ id: string; label: string; displayOrder?: number; order?: number }>;
+                    }, idx: number) => {
+                      const rawOpts = q.QuestionOption ?? q.options ?? [];
+                      return {
+                        id: q.id,
+                        prompt: q.text ?? q.prompt ?? '',
+                        questionType: q.type ?? q.questionType ?? 'SHORT_TEXT',
+                        isRequired: q.isRequired ?? true,
+                        order: q.displayOrder ?? q.order ?? idx + 1,
+                        options: rawOpts.map((o, oIdx) => ({
+                          id: o.id,
+                          label: o.label,
+                          order: o.displayOrder ?? o.order ?? oIdx + 1,
+                        })),
+                      };
+                    });
+                  }
+                }
+              } catch {
+                // Keep empty questions if detail fetch fails
+              }
+              return {
+                id: item.id,
+                title: item.title,
+                description: item.description ?? '',
+                category: categoryMap.get(item.id) ?? 'Campus Feedback',
+                status: item.status,
+                ownerId: item.ownerId,
+                createdAt: item.createdAt,
+                publishedAt: item.publishedAt ?? undefined,
+                closedAt: item.closedAt ?? undefined,
+                questions,
+              } satisfies Survey;
+            })
+          );
+          if (detailed.length > 0) {
+            activeSurveys = detailed;
+            setSurveys(detailed);
+          }
+        }
+      }
+    } catch {
+      // Fallback to cached surveys if backend list is unreachable
+    }
+
     if (user.role === 'RESPONDENT') {
-      for (const s of surveys) {
+      for (const s of activeSurveys) {
         void syncStudentResponseForSurvey(s, user.token, user.email);
       }
     } else if (user.role === 'SURVEY_OWNER') {
-      for (const s of surveys) {
+      for (const s of activeSurveys) {
         void syncOwnerSummaryForSurvey(s.id, user.token);
       }
     }

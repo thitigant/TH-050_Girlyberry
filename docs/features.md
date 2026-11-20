@@ -58,3 +58,7 @@ This catalog enumerates all planned system features (`F-01` to `F-21`) spanning 
 | **CP-01** | `F-05` / `FR-09` | Moved manual Survey Closure from Sprint 2 into Sprint 1. | Allows full end-to-end testing of `CLOSED` state rejection rules (`BR-05`) during Sprint 1 evaluation. | **Approved** |
 | **CP-02** | `BR-09` | Withdrew requirement for automatic response quota termination in Sprint 1. | Replaced with explicit manual owner closure (`FR-09`) and Sprint 2 scheduled deadline (`FR-20`). | **Approved** |
 | **CP-03** | `BR-03` | Capped question count at 25 questions per survey. | Prevents excessive payload size and ensures predictable rendering performance on mobile browsers. | **Approved** |
+
+
+### Note on Feature ID Sequence (F-11 Reconciliation)
+In the initial baseline feature inventory, F-11 was scoped as *'Survey Question Editing in Draft Status'*. During architectural review and Sprint 1 scope consolidation, question authoring and editing within draft surveys were unified directly into F-04 (*Survey Question Authoring & Reordering*) and F-03 (*Create Draft Survey Header with Validation Limits*) to maintain atomic draft transaction boundaries. The identifier F-11 was deliberately retired rather than renumbered to preserve auditability against early design logs. All 21 features (F-01 to F-21, excluding retired F-11) represent the complete three-sprint product scope.

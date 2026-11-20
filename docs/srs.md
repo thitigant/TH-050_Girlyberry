@@ -84,7 +84,7 @@ In university environments and academic organizations, gathering structured feed
 | :--- | :--- | :--- |
 | **BR-01** | User accounts must strictly belong to either `SURVEY_OWNER` or `RESPONDENT` role; roles cannot be escalated via client request payload. | Backend JWT payload verification & role authorization middleware. |
 | **BR-02** | A survey must contain a valid title (5–120 characters) and at least 1 configured question before it can be transitioned to `PUBLISHED`. | Service-layer validation during publish transaction. |
-| **BR-03** | A survey can have a maximum of 25 questions to ensure focused evaluation and maintainable performance. | API request schema validation & domain boundary check. |
+| **BR-03** | A survey can contain at most 30 questions (1–30 questions) to ensure comprehensive evaluation while preventing unbounded request payloads and unbounded database joins. | API request schema validation (Zod max(30)) & domain boundary check. |
 | **BR-04** | Once a survey is transitioned to `PUBLISHED` or `CLOSED`, its title, description, questions, and options are immutable. | Pre-update check rejecting modifications if status $\neq$ `DRAFT`. |
 | **BR-05** | Only surveys with status `PUBLISHED` shall accept response submissions. `DRAFT` and `CLOSED` surveys must reject submissions with error code `SURVEY_NOT_ACCEPTING_RESPONSES` (HTTP 400). | Submission controller status pre-check. |
 | **BR-06** | A respondent can submit at most ONE response per survey. Any subsequent submission attempt must be rejected with error code `DUPLICATE_SUBMISSION` (HTTP 409). | Database composite unique constraint `@@unique([surveyId, respondentId])` and pre-flight query. |
@@ -118,19 +118,35 @@ In university environments and academic organizations, gathering structured feed
 
 ---
 
-## 7. Architectural Decisions & Assumptions
+## 7. Architectural Decisions, Assumptions & Open Questions
 
-- **D-01: Modular Monolith Architecture:** Selected React 18 (Vite SPA) + Node.js (Express API) + Prisma ORM + PostgreSQL. This provides high development velocity, end-to-end TypeScript safety, and satisfies the course requirement without microservice operational overhead.
-- **D-02: Stateless JWT with Database Blacklist:** Authentication uses signed HS256 JSON Web Tokens with a 24-hour expiration. Logout records the token JTI in a `RevokedToken` table to achieve immediate revocation while keeping standard requests fast.
-- **D-03: Relational Integrity for Duplicate Prevention:** Enforce the single-submission rule (`BR-06`) at the database level via a composite unique index on `Response(surveyId, respondentId)`, preventing race conditions during concurrent submissions.
-- **D-04: Authoritative Server Calculations:** All aggregate statistics (means, response totals, percentages) are calculated authoritatively on the backend using SQL aggregation rather than in client memory.
-- **D-05: Seed Accounts for Evaluation:** Seed script initializes deterministic test users:
-  - `owner1@unipulse.edu` (Survey Owner, Password: `Password123!`)
-  - `owner2@unipulse.edu` (Secondary Survey Owner for cross-access testing)
-  - `student1@unipulse.edu` (Respondent 1, Password: `Password123!`)
-  - `student2@unipulse.edu` (Respondent 2, Password: `Password123!`)
-- **D-06: Environment Isolation:** Sensitive variables (`DATABASE_URL`, `JWT_SECRET`, `PORT`) are managed via `.env` files and `.env.example`, strictly kept out of Git.
-- **D-07: Uniform REST Error Schema:** All API failures return standard HTTP status codes accompanied by `{ error: { code: string, message: string, details?: any } }`.
-- **D-08: Target Cloud Platform:** Designed for containerized deployment on Google Cloud Run with Google Cloud SQL for PostgreSQL.
-- **D-09: TDD Discipline:** All critical business rules (`BR-02`, `BR-05`, `BR-06`, `BR-07`, `BR-12`) require automated unit/integration tests demonstrating red (failing) state prior to implementation.
-- **D-10: Git Workflow Governance:** Work progresses from Issue $\rightarrow$ Feature Branch $\rightarrow$ Pull Request into `sprint-1` with teammate review approval before merging.
+### 7.1 Key Architectural Decisions (D-01 to D-10)
+- **D-01: Full-Stack TypeScript Modular Monolith:** Organized into client/ (React 19 + Vite SPA) and server/ (Node.js + Express + Prisma ORM + PostgreSQL 16) workspaces. This delivers end-to-end type safety, high developer velocity, and avoids microservice network latency for Sprint 1.
+- **D-02: Stateless JWT with Database Revocation Table:** Authentication issues signed HS256 JWT tokens containing a unique jti (JWT ID) with a 60-minute expiration (JWT_EXPIRES_IN=60m). On POST /api/v1/auth/logout, the server records jti into the RevokedToken PostgreSQL table; 
+equireAuth middleware verifies both cryptographic validity and absence from RevokedToken.
+- **D-03: Relational Integrity for Duplicate Prevention:** Single-submission rule (BR-06) is guaranteed at the database level via a composite unique constraint @@unique([surveyId, respondentId]) on table Response, paired with atomic Prisma transaction rollback to prevent concurrent race conditions.
+- **D-04: Authoritative Server Calculations:** All aggregate statistics (mean rating score, score distributions, and choice percentages) are computed authoritatively on the backend via SQL/Prisma aggregation rather than relying on client-side calculation (F-12).
+- **D-05: Idempotent Seed Provisioning:** Synthetic demo accounts (owner1@unipulse.edu, owner2@unipulse.edu, student1@unipulse.edu, student2@unipulse.edu) are seeded via prisma.user.upsert with bcrypt cost factor 12, ensuring repeatable, non-colliding evaluations.
+- **D-06: Environment Variable & Secret Isolation:** Runtime configuration (DATABASE_URL, JWT_SECRET, PORT, NODE_ENV) is externalized into .env and documented in .env.example. Secrets are never committed into Git tracking.
+- **D-07: Uniform REST JSON Envelopes & Error Taxonomy:** All API endpoints return uniform JSON responses: { data } on 2xx success and { error: { code, message, details } } on 4xx/5xx failure with safe error logging.
+- **D-08: Target Cloud & Container Architecture:** The application is architected as a stateless container ready for multi-stage Docker build and Google Cloud Run deployment connected to Google Cloud SQL PostgreSQL.
+- **D-09: TDD Discipline:** Core business rules (BR-02 non-empty publish guard, BR-05 closed rejection, BR-06 composite duplicate prevention, BR-07 owner response block, BR-12 rating [1, 5] bounds, and NFR-11 zero draft leakage) are verified through automated integration tests before release merge.
+- **D-10: Git Workflow Governance:** Work progresses from GitHub Issue → Feature Branch → Pull Request into sprint-1 with mandatory teammate peer review before staging merge.
+
+### 7.2 Project Assumptions & Resolved Open Questions
+During Sprint 1 baseline planning and implementation, the engineering team recorded and resolved the following architectural assumptions and design questions:
+1. **JWT Token Expiration Window (Assumption → Resolved):**
+   - *Question:* How long should the access token remain valid to balance evaluation workflow convenience against stale session risk?
+   - *Resolution:* Fixed at **60 minutes** (JWT_EXPIRES_IN=60m in server/.env and server/src/utils/jwt.ts). To handle immediate revocation on user sign-out, POST /api/v1/auth/logout inserts the token's jti into PostgreSQL RevokedToken, ensuring instant invalidation without waiting for the 60-minute window to elapse.
+2. **Survey Closure in Sprint 1 (Change Proposal CP-01 → Resolved):**
+   - *Question:* Should survey closure be deferred to Sprint 2 or included in Sprint 1?
+   - *Resolution:* Moved manual closure (POST /api/v1/surveys/:id/close) into Sprint 1 under **CP-01** (approved). This allowed full verification of the DRAFT → PUBLISHED → CLOSED state machine, BR-05 (rejection of submissions to closed surveys), and respondent inspection of closed surveys in Sprint 1.
+3. **Rating Question Support in Sprint 1 (Baseline Scope → Resolved):**
+   - *Question:* Should rating questions be deferred or included alongside choice/text questions in Sprint 1?
+   - *Resolution:* Included in Sprint 1 (F-04 and BR-12). Ratings accept integer values strictly in the range [1, 5], verified by unit tests (TEST-31 / TEST-34) and SQL mean calculation (F-12).
+4. **Question Count Upper Bound (Validation Boundary → Resolved):**
+   - *Question:* Should the survey question count be capped at 25 or 30 questions?
+   - *Resolution:* Capped at **30 questions** (1 ≤ questions ≤ 30), enforced authoritatively by Zod schema (server/src/validators/surveyValidator.ts) and verified by TEST-12 in server/tests/survey.test.ts.
+5. **Zero Draft Leakage HTTP Response Code (Security Policy → Resolved):**
+   - *Question:* Should non-owners querying unreleased DRAFT surveys receive HTTP 403 Forbidden or HTTP 404 Not Found?
+   - *Resolution:* Enforced as **HTTP 404 Not Found** (SURVEY_NOT_FOUND) across both catalog and detail endpoints (NFR-11). Returning 403 would leak the existence and ID of private drafts to attackers/respondents.

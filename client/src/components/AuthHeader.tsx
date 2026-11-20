@@ -55,21 +55,36 @@ export function AuthHeader({
             <i className="fa-solid fa-square-poll-vertical" />
           </div>
           <div>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: '1.25rem',
-                fontWeight: 700,
-                background: 'linear-gradient(to right, #4f46e5, #7c3aed)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                lineHeight: 1.2,
-              }}
-            >
-              UniPulse
-            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: '1.25rem',
+                  fontWeight: 700,
+                  background: 'linear-gradient(to right, #4f46e5, #7c3aed)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  lineHeight: 1.2,
+                }}
+              >
+                UniPulse
+              </h1>
+              <span
+                style={{
+                  padding: '0.12rem 0.5rem',
+                  borderRadius: '9999px',
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                  backgroundColor: '#eef2ff',
+                  color: '#4338ca',
+                  border: '1px solid #c7d2fe',
+                }}
+              >
+                Cloud v1.1
+              </span>
+            </div>
             <p style={{ margin: 0, fontSize: '0.75rem', color: '#94a3b8' }}>
-              Campus Feedback &amp; Survey System
+              Campus Feedback &amp; Survey System &bull; GCP Cloud Run
             </p>
           </div>
         </div>

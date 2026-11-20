@@ -273,6 +273,7 @@ function UniPulseMain() {
         const listBody = await listRes.json().catch(() => null);
         if (Array.isArray(listBody?.data)) {
           const categoryMap = new Map(INITIAL_SURVEYS.map((s) => [s.id, s.category]));
+          const existingMap = new Map(surveys.map((s) => [s.id, s]));
           const detailed = await Promise.all(
             listBody.data.map(async (item: {
               id: string;
@@ -284,14 +285,15 @@ function UniPulseMain() {
               publishedAt?: string | null;
               closedAt?: string | null;
             }) => {
-              let questions: Survey['questions'] = [];
+              const existing = existingMap.get(item.id);
+              let questions: Survey['questions'] = existing?.questions ?? [];
               try {
                 const detailRes = await fetch(`/api/surveys/${item.id}`, {
                   headers: { Authorization: `Bearer ${user.token}` },
                 });
                 if (detailRes.ok) {
                   const detailBody = await detailRes.json().catch(() => null);
-                  const rawQuestions = detailBody?.data?.Question ?? detailBody?.data?.questions ?? [];
+                  const rawQuestions = detailBody?.data?.Question ?? detailBody?.data?.questions;
                   if (Array.isArray(rawQuestions)) {
                     questions = rawQuestions.map((q: {
                       id: string;
@@ -322,13 +324,13 @@ function UniPulseMain() {
                   }
                 }
               } catch {
-                // Keep empty questions if detail fetch fails
+                // Preserve existing cached questions if detail request fails
               }
               return {
                 id: item.id,
                 title: item.title,
                 description: item.description ?? '',
-                category: categoryMap.get(item.id) ?? 'Campus Feedback',
+                category: categoryMap.get(item.id) ?? existing?.category ?? 'Campus Feedback',
                 status: item.status,
                 ownerId: item.ownerId,
                 createdAt: item.createdAt,
@@ -338,10 +340,8 @@ function UniPulseMain() {
               } satisfies Survey;
             })
           );
-          if (detailed.length > 0) {
-            activeSurveys = detailed;
-            setSurveys(detailed);
-          }
+          activeSurveys = detailed;
+          setSurveys(detailed);
         }
       }
     } catch {

@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: unipulse-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-survey}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB:-survey}
+    ports:
+      - "5432:5432"
+    volumes:
+      - unipulse_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-survey} -d ${POSTGRES_DB:-survey}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: unipulse-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-survey}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-survey}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-key-for-unipulse-docker-local}
+      JWT_EXPIRES_IN: "60m"
+    ports:
+      - "3000:3000"
+
+volumes:
+  unipulse_pgdata:

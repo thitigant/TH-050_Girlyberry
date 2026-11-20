@@ -62,4 +62,4 @@ EXPOSE 3000
 USER node
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
-CMD ["node", "dist/server.js"]
+CMD ["node", "dist/src/server.js"]

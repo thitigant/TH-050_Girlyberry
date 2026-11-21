@@ -3,6 +3,7 @@
 **Team:** TH-050 Girlyberry  
 **Members:** Jinjuta Nannarumit (`67070505210`, `@Ponatinylilbug`), Thitigan Surayothin (`67070505214`, `@thitigant`)  
 **Repository:** `https://github.com/thitigant/TH-050_Girlyberry`  
+**Live Public URL:** `https://s17b15028-4d7hbszvwq-as.a.run.app`  
 
 ---
 

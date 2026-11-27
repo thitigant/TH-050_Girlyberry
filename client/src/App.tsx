@@ -15,6 +15,9 @@ const DEFAULT_ANALYTICS_DATA: SurveyAnalyticsData = {
   title: 'CPE 334 Software Engineering Course Evaluation (Sprint 1)',
   status: 'PUBLISHED',
   totalResponses: 24,
+  minResponsesForSummary: 3,
+  privacyLocked: false,
+  privacyReason: null,
   questions: [
     {
       questionId: 'qst_1',
@@ -505,6 +508,7 @@ function UniPulseMain() {
           body: JSON.stringify({
             title: newSurveyData.title,
             description: newSurveyData.description,
+            minResponsesForSummary: newSurveyData.minResponsesForSummary ?? 3,
             questions: newSurveyData.questions.map((q, idx) => ({
               text: q.prompt,
               type: q.questionType,
@@ -693,11 +697,27 @@ function UniPulseMain() {
     const baseTotal = isDefaultDemoSurvey ? DEFAULT_ANALYTICS_DATA.totalResponses : 0;
     const addedCount = useDbSummary ? dbSummary.totalResponses : extraSubmissions.length;
 
+    if (dbSummary?.privacyLocked) {
+      return {
+        surveyId: targetSurvey.id,
+        title: targetSurvey.title,
+        status: targetSurvey.status,
+        totalResponses: dbSummary.totalResponses,
+        minResponsesForSummary: dbSummary.minResponsesForSummary,
+        privacyLocked: true,
+        privacyReason: dbSummary.privacyReason,
+        questions: [],
+      };
+    }
+
     return {
       surveyId: targetSurvey.id,
       title: targetSurvey.title,
       status: targetSurvey.status,
       totalResponses: baseTotal + addedCount,
+      minResponsesForSummary: dbSummary?.minResponsesForSummary ?? targetSurvey.minResponsesForSummary ?? 3,
+      privacyLocked: false,
+      privacyReason: null,
       questions: targetSurvey.questions.map((q) => {
         const qAnswers = extraSubmissions
           .map((ansList) => ansList.find((a) => a.questionId === q.id))

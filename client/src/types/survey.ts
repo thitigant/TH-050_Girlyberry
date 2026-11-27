@@ -25,18 +25,33 @@ export interface Question {
   options?: QuestionOption[];
 }
 
+export type ResponseMode = 'IDENTIFIED' | 'ANONYMOUS';
+
 export interface Survey {
   id: string;
   title: string;
   description?: string;
   category: string;
   status: SurveyStatus;
+  responseMode?: ResponseMode;
+  minResponsesForSummary?: number;
   ownerId: string;
   ownerEmail?: string;
   createdAt: string;
   publishedAt?: string;
   closedAt?: string;
   questions: Question[];
+}
+
+export interface SurveyAnalyticsSummary {
+  surveyId: string;
+  title: string;
+  status: SurveyStatus;
+  totalResponses: number;
+  minResponsesForSummary: number;
+  privacyLocked: boolean;
+  privacyReason: string | null;
+  questions: any[];
 }
 
 export interface AnswerInput {

@@ -99,7 +99,24 @@ export class AnalyticsService {
       }),
     ]);
 
-    // 4. Compute aggregate metrics per question
+    // 4. Privacy quorum gate (F-12 / AC-L7-02, AC-L7-03, AC-L7-04)
+    const privacyLocked =
+      survey.status === 'PUBLISHED' && totalResponses < survey.minResponsesForSummary;
+
+    if (privacyLocked) {
+      return {
+        surveyId: survey.id,
+        title: survey.title,
+        status: survey.status,
+        totalResponses,
+        minResponsesForSummary: survey.minResponsesForSummary,
+        privacyLocked: true,
+        privacyReason: `Analytics details are hidden to protect respondent privacy until at least ${survey.minResponsesForSummary} responses are collected or the survey is closed.`,
+        questions: [],
+      };
+    }
+
+    // 5. Compute aggregate metrics per question
     const questionsSummary = survey.Question.map((q) => {
       if (q.type === QuestionType.RATING) {
         const qAnswers = ratingAnswers.filter((a) => a.questionId === q.id);
@@ -166,12 +183,15 @@ export class AnalyticsService {
       };
     });
 
-    // 5. Zero respondent-identifying information (AC-21, NFR-12)
+    // 6. Zero respondent-identifying information (AC-21, NFR-12)
     return {
       surveyId: survey.id,
       title: survey.title,
       status: survey.status,
       totalResponses,
+      minResponsesForSummary: survey.minResponsesForSummary,
+      privacyLocked: false,
+      privacyReason: null,
       questions: questionsSummary,
     };
   }

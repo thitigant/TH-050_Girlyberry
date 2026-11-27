@@ -43,6 +43,13 @@ export const createSurveySchema = z.object({
     .max(150, 'Title cannot exceed 150 characters'),
   description: z.string().trim().max(1000).optional(),
   responseMode: z.enum(['IDENTIFIED', 'ANONYMOUS']).optional().default('IDENTIFIED'),
+  minResponsesForSummary: z
+    .number()
+    .int('minResponsesForSummary must be an integer')
+    .min(1, 'minResponsesForSummary must be at least 1')
+    .max(20, 'minResponsesForSummary cannot exceed 20')
+    .optional()
+    .default(3),
   questions: z
     .array(questionInputSchema)
     .max(30, 'A survey can have at most 30 questions')

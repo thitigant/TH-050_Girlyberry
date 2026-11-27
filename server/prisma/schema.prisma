@@ -75,9 +75,10 @@ model Survey {
   ownerId      String
   title        String
   description  String?
-  status       SurveyStatus @default(DRAFT)
-  responseMode ResponseMode @default(IDENTIFIED)
-  publishedAt  DateTime?
+  status                 SurveyStatus @default(DRAFT)
+  responseMode           ResponseMode @default(IDENTIFIED)
+  minResponsesForSummary Int          @default(3)
+  publishedAt            DateTime?
   closedAt     DateTime?
   closesAt     DateTime?
   createdAt    DateTime     @default(now())

@@ -15,6 +15,7 @@ export function CreateSurveyView({
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('Course Evaluation');
   const [description, setDescription] = useState('');
+  const [minResponsesForSummary, setMinResponsesForSummary] = useState(3);
   const [questions, setQuestions] = useState<Question[]>([
     {
       id: 'q_init_1',
@@ -93,6 +94,7 @@ export function CreateSurveyView({
       description: description.trim() || undefined,
       status,
       ownerEmail,
+      minResponsesForSummary,
       questions,
     });
   };
@@ -216,6 +218,34 @@ export function CreateSurveyView({
                 fontFamily: 'inherit',
               }}
             />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+              Minimum Response Privacy Quorum (k-Anonymity)
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={minResponsesForSummary}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  setMinResponsesForSummary(isNaN(val) ? 3 : Math.min(20, Math.max(1, val)));
+                }}
+                style={{
+                  width: '90px',
+                  padding: '0.5rem 0.75rem',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '0.95rem',
+                }}
+              />
+              <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                responses required before aggregate analytics are visible (range: 1 - 20, default: 3)
+              </span>
+            </div>
           </div>
         </div>
 

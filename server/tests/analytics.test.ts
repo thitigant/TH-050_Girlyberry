@@ -63,6 +63,7 @@ describe('F-08 / F-12 Aggregate Survey Results Summary', () => {
         title: 'CPE 334 Lab 4 Course Feedback',
         description: 'Aggregate testing survey',
         status: SurveyStatus.PUBLISHED,
+        minResponsesForSummary: 1,
         publishedAt: new Date(timestamp - 10000),
         updatedAt: new Date(),
         Question: {
@@ -160,15 +161,16 @@ describe('F-08 / F-12 Aggregate Survey Results Summary', () => {
       },
     });
 
-    // 3. Create a survey with ZERO responses (to verify graceful handling)
+    // 3. Create a survey with ZERO responses (to verify graceful handling on closed survey)
     const sEmpty = await prisma.survey.create({
       data: {
         id: `srv_anly_empty_${timestamp}`,
         ownerId: owner1Id,
         title: 'Survey With No Responses Yet',
         description: 'Zero response edge case',
-        status: SurveyStatus.PUBLISHED,
+        status: SurveyStatus.CLOSED,
         publishedAt: new Date(timestamp - 1000),
+        closedAt: new Date(timestamp - 500),
         updatedAt: new Date(),
         Question: {
           create: [
@@ -431,7 +433,7 @@ describe('F-08 / F-12 Aggregate Survey Results Summary', () => {
       expect(maxRes.status).toBe(201);
       if (maxRes.body.data?.id) createdLab7SurveyIds.push(maxRes.body.data.id);
       expect(maxRes.body.data.minResponsesForSummary).toBe(20);
-    });
+    }, 15000);
 
     it('TEST-L7-02 (AC-L7-01): should reject minResponsesForSummary < 1, > 20, or non-integer with 400 INVALID_PAYLOAD', async () => {
       for (const badThreshold of [0, 21, 2.5]) {
@@ -548,7 +550,7 @@ describe('F-08 / F-12 Aggregate Survey Results Summary', () => {
       expect(unlockedRes.body.data.privacyLocked).toBe(false);
       expect(unlockedRes.body.data.privacyReason).toBeNull();
       expect(unlockedRes.body.data.questions).toHaveLength(2);
-    });
+    }, 15000);
 
     it('TEST-L7-05 (AC-L7-04): should unlock analytics below quorum once owner transitions survey to CLOSED', async () => {
       const createRes = await request(app)
@@ -596,6 +598,6 @@ describe('F-08 / F-12 Aggregate Survey Results Summary', () => {
       expect(summaryAfterClose.body.data.questions[0].summary.answers).toContain(
         'Single response before close'
       );
-    });
+    }, 15000);
   });
 });

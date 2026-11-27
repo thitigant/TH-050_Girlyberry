@@ -13,6 +13,9 @@ export function CreateSurveyView({
   onCreateSurvey,
 }: CreateSurveyViewProps) {
   const [title, setTitle] = useState('');
+  const [responseMode, setResponseMode] = useState<'IDENTIFIED' | 'ANONYMOUS'>('IDENTIFIED');
+  const [closesAt, setClosesAt] = useState('');
+
   const [category, setCategory] = useState('Course Evaluation');
   const [description, setDescription] = useState('');
   const [questions, setQuestions] = useState<Question[]>([
@@ -94,6 +97,8 @@ export function CreateSurveyView({
       status,
       ownerEmail,
       questions,
+      responseMode,
+      closesAt: closesAt || undefined,
     });
   };
 
@@ -216,6 +221,50 @@ export function CreateSurveyView({
                 fontFamily: 'inherit',
               }}
             />
+          </div>
+
+          {/* F-13 Response Mode & F-15 ClosesAt (Scheduled Expiry) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                Response Mode (F-13)
+              </label>
+              <select
+                value={responseMode}
+                onChange={(e) => setResponseMode(e.target.value as 'IDENTIFIED' | 'ANONYMOUS')}
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  padding: '0.625rem 0.875rem',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '0.95rem',
+                  backgroundColor: '#ffffff',
+                }}
+              >
+                <option value="IDENTIFIED">Identified (Standard)</option>
+                <option value="ANONYMOUS">Anonymous (Redacted Respondent ID)</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                Scheduled Expiry Deadline (F-15 ClosesAt)
+              </label>
+              <input
+                type="datetime-local"
+                value={closesAt}
+                onChange={(e) => setClosesAt(e.target.value)}
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  padding: '0.625rem 0.875rem',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '0.95rem',
+                }}
+              />
+            </div>
           </div>
         </div>
 

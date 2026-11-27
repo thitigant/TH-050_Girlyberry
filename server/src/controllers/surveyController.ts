@@ -95,15 +95,16 @@ export class SurveyController {
     }
   }
 
-  async deleteSurvey(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  async duplicateSurvey(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const surveyId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-      const result = await surveyService.deleteSurvey(surveyId, req.user!.id);
-      res.status(200).json({ data: result });
+      const clone = await surveyService.duplicateSurvey(surveyId, req.user!.id);
+      res.status(201).json({ data: clone });
     } catch (error) {
       handleControllerError(error, res, next);
     }
   }
+
 }
 
 export const surveyController = new SurveyController();

@@ -37,6 +37,9 @@ export class SurveyService {
         description: input.description,
         status: SurveyStatus.DRAFT,
         responseMode: (input.responseMode as ResponseMode) || ResponseMode.IDENTIFIED,
+        closesAt: input.closesAt ? new Date(input.closesAt) : null,
+        accessCode: (input as any).accessCode ?? null,
+        allowedEmailDomain: (input as any).allowedEmailDomain ?? null,
         updatedAt: new Date(),
         Question: {
           create: questionsData,
@@ -319,6 +322,88 @@ export class SurveyService {
     });
 
     return { id: surveyId, deleted: true };
+  }
+
+  async duplicateSurvey(surveyId: string, requestingUserId: string) {
+    // Fetch source survey with all questions and options ordered by displayOrder
+    const source = await prisma.survey.findUnique({
+      where: { id: surveyId },
+      include: {
+        Question: {
+          orderBy: { displayOrder: 'asc' },
+          include: {
+            QuestionOption: {
+              orderBy: { displayOrder: 'asc' },
+            },
+          },
+        },
+      },
+    });
+
+    if (!source) {
+      throw new AppError(404, 'SURVEY_NOT_FOUND', 'Survey not found');
+    }
+
+    if (source.ownerId !== requestingUserId) {
+      throw new AppError(403, 'FORBIDDEN_OWNERSHIP', 'Access denied. You do not own this survey.');
+    }
+
+    // Truncate "Copy of <title>" to 150 chars (AC-34)
+    const cloneTitle = `Copy of ${source.title}`.slice(0, 150);
+    const newSurveyId = `srv_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+
+    const questionsData = source.Question.map((q) => {
+      const newQId = `qst_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+      const optionsData = q.QuestionOption.map((opt) => ({
+        id: `opt_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`,
+        label: opt.label,
+        displayOrder: opt.displayOrder,
+      }));
+
+      return {
+        id: newQId,
+        text: q.text,
+        type: q.type,
+        isRequired: q.isRequired,
+        displayOrder: q.displayOrder,
+        QuestionOption: {
+          create: optionsData,
+        },
+      };
+    });
+
+    // Atomic nested write — fresh DRAFT, no publishedAt/closedAt/closesAt
+    const clone = await prisma.survey.create({
+      data: {
+        id: newSurveyId,
+        ownerId: requestingUserId,
+        title: cloneTitle,
+        description: source.description,
+        responseMode: source.responseMode,
+        allowedEmailDomain: source.allowedEmailDomain,
+        accessCode: source.accessCode,
+        closesAt: null,
+        status: SurveyStatus.DRAFT,
+        publishedAt: null,
+        closedAt: null,
+        updatedAt: new Date(),
+        Question: {
+          create: questionsData,
+        },
+      },
+      include: {
+        Question: {
+          orderBy: { displayOrder: 'asc' },
+          include: {
+            QuestionOption: {
+              orderBy: { displayOrder: 'asc' },
+            },
+          },
+        },
+      },
+    });
+
+    return clone;
   }
 }
 

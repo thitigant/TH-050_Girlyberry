@@ -48,6 +48,21 @@ export class ResponseService {
       throw new AppError(400, 'SURVEY_NOT_ACCEPTING_RESPONSES', 'Survey response deadline has passed');
     }
 
+    // 5b. F-16: Cohort Access Control (AC-32, AC-33)
+    const submittedAccessCode: string | undefined = (answersInput as any).__accessCode;
+    if ((survey as any).allowedEmailDomain) {
+      // fetch respondent email
+      const respondent = await prisma.user.findUnique({ where: { id: respondentId }, select: { email: true } });
+      if (!respondent?.email.toLowerCase().endsWith(((survey as any).allowedEmailDomain as string).toLowerCase())) {
+        throw new AppError(403, 'COHORT_ACCESS_DENIED', 'Your email domain is not allowed for this survey');
+      }
+    }
+    if ((survey as any).accessCode) {
+      if (!submittedAccessCode || submittedAccessCode !== (survey as any).accessCode) {
+        throw new AppError(403, 'COHORT_ACCESS_DENIED', 'Invalid or missing access code for this survey');
+      }
+    }
+
     // 6. Pre-flight duplicate check (BR-06, AC-17, TEST-14)
     const existingResponse = await prisma.response.findUnique({
       where: {
@@ -90,7 +105,7 @@ export class ResponseService {
       }
 
       // Validate per question type
-      if (q.type === QuestionType.RATING) {
+      if (q.type === QuestionType.RATING || q.type === QuestionType.LIKERT_SCALE) {
         const rating = ans.ratingValue ?? ans.numericValue;
         if (rating !== null && rating !== undefined) {
           if (typeof rating !== 'number' || !Number.isInteger(rating) || rating < 1 || rating > 5) {
@@ -102,6 +117,17 @@ export class ResponseService {
           const validOption = q.QuestionOption.some((opt) => opt.id === ans.selectedOptionId);
           if (!validOption) {
             throw new AppError(422, 'INVALID_OPTION_SELECTED', 'Selected option is not valid for this question');
+          }
+        }
+      } else if (q.type === QuestionType.MULTIPLE_CHOICE) {
+        const ids: string[] = (ans as any).selectedOptionIds ?? (ans.selectedOptionId ? [ans.selectedOptionId] : []);
+        if (ids.length === 0 && q.isRequired) {
+          throw new AppError(422, 'EMPTY_REQUIRED_ANSWER', `At least one selection is required for question: '${q.text}'`);
+        }
+        for (const optId of ids) {
+          const valid = q.QuestionOption.some((opt) => opt.id === optId);
+          if (!valid) {
+            throw new AppError(422, 'INVALID_OPTION_SELECTED', `Option '${optId}' is not valid for this question`);
           }
         }
       } else if (q.type === QuestionType.SHORT_TEXT) {
@@ -120,7 +146,7 @@ export class ResponseService {
         throw new AppError(422, 'EMPTY_REQUIRED_ANSWER', `Missing answer for required question: '${q.text}'`);
       }
 
-      if (q.type === QuestionType.RATING) {
+      if (q.type === QuestionType.RATING || q.type === QuestionType.LIKERT_SCALE) {
         const val = ans.ratingValue ?? ans.numericValue;
         if (val === null || val === undefined) {
           throw new AppError(422, 'EMPTY_REQUIRED_ANSWER', `Rating is required for question: '${q.text}'`);
@@ -128,6 +154,11 @@ export class ResponseService {
       } else if (q.type === QuestionType.SINGLE_CHOICE) {
         if (!ans.selectedOptionId || ans.selectedOptionId.trim().length === 0) {
           throw new AppError(422, 'EMPTY_REQUIRED_ANSWER', `Selection is required for question: '${q.text}'`);
+        }
+      } else if (q.type === QuestionType.MULTIPLE_CHOICE) {
+        const ids: string[] = (ans as any).selectedOptionIds ?? (ans.selectedOptionId ? [ans.selectedOptionId] : []);
+        if (ids.length === 0) {
+          throw new AppError(422, 'EMPTY_REQUIRED_ANSWER', `At least one selection is required for question: '${q.text}'`);
         }
       } else if (q.type === QuestionType.SHORT_TEXT) {
         if (!ans.textValue || ans.textValue.trim().length === 0) {
@@ -142,18 +173,30 @@ export class ResponseService {
       id: string;
       questionId: string;
       selectedOptionId: string | null;
+      selectedOptionIds: string | null;
       ratingValue: number | null;
       textValue: string | null;
     }> = [];
 
     for (const ans of answersInput) {
       const q = questionMap.get(ans.questionId)!;
-      const ratingValue = q.type === QuestionType.RATING ? (ans.ratingValue ?? ans.numericValue ?? null) : null;
+      const ratingValue = (q.type === QuestionType.RATING || q.type === QuestionType.LIKERT_SCALE)
+        ? (ans.ratingValue ?? ans.numericValue ?? null)
+        : null;
       const selectedOptionId = q.type === QuestionType.SINGLE_CHOICE ? (ans.selectedOptionId ?? null) : null;
-      const textValue = q.type === QuestionType.SHORT_TEXT ? (ans.textValue ? ans.textValue.trim() : null) : null;
+      // MULTIPLE_CHOICE: store ids as JSON array in selectedOptionIds column; textValue for analytics query
+      let selectedOptionIds: string | null = null;
+      let textValue: string | null = null;
+      if (q.type === QuestionType.MULTIPLE_CHOICE) {
+        const ids: string[] = (ans as any).selectedOptionIds ?? (ans.selectedOptionId ? [ans.selectedOptionId] : []);
+        selectedOptionIds = JSON.stringify(ids);
+        textValue = JSON.stringify(ids); // also stored in textValue for analytics query compatibility
+      } else if (q.type === QuestionType.SHORT_TEXT) {
+        textValue = ans.textValue ? ans.textValue.trim() : null;
+      }
 
       // Skip storing empty rows for optional questions if no answer value was given
-      const hasValue = ratingValue !== null || selectedOptionId !== null || (textValue !== null && textValue.length > 0);
+      const hasValue = ratingValue !== null || selectedOptionId !== null || selectedOptionIds !== null || (textValue !== null && textValue.length > 0);
       if (!hasValue && !q.isRequired) {
         continue;
       }
@@ -162,6 +205,7 @@ export class ResponseService {
         id: `ans_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`,
         questionId: ans.questionId,
         selectedOptionId,
+        selectedOptionIds,
         ratingValue,
         textValue,
       });
@@ -239,6 +283,7 @@ export class ResponseService {
             title: true,
             description: true,
             status: true,
+            responseMode: true,
           },
         },
       },

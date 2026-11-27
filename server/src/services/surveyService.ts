@@ -38,6 +38,8 @@ export class SurveyService {
         status: SurveyStatus.DRAFT,
         responseMode: (input.responseMode as ResponseMode) || ResponseMode.IDENTIFIED,
         closesAt: input.closesAt ? new Date(input.closesAt) : null,
+        accessCode: (input as any).accessCode ?? null,
+        allowedEmailDomain: (input as any).allowedEmailDomain ?? null,
         updatedAt: new Date(),
         Question: {
           create: questionsData,

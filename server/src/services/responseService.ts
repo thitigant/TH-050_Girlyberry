@@ -295,6 +295,8 @@ export class ResponseService {
 
     // Redact respondentId for anonymous surveys (F-13)
     const isAnonymous = response.Survey?.responseMode === 'ANONYMOUS';
+    (response as any).isAnonymous = isAnonymous;
+    (response as any).responseMode = response.Survey?.responseMode;
     if (isAnonymous) {
       // remove respondentId field from response object
       (response as any).respondentId = null;

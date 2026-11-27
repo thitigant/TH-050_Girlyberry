@@ -205,6 +205,7 @@ export class AnalyticsService {
       surveyId: survey.id,
       title: survey.title,
       status: survey.status,
+      responseMode: survey.responseMode,
       totalResponses,
       questions: questionsSummary,
     };

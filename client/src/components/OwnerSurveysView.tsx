@@ -9,7 +9,9 @@ interface OwnerSurveysViewProps {
   onDeleteSurvey: (surveyId: string) => void;
   onViewAnalytics: (surveyId: string) => void;
   onOpenCreate: () => void;
+  onDuplicateSurvey: (surveyId: string) => void;
 }
+
 
 export function OwnerSurveysView({
   surveys,
@@ -114,6 +116,8 @@ export function OwnerSurveysView({
             <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontWeight: 700 }}>
               <th style={{ padding: '0.75rem 1rem' }}>Title & Category</th>
               <th style={{ padding: '0.75rem 1rem' }}>Status</th>
+              <th style={{ padding: '0.75rem 1rem' }}>Response Mode</th>
+              <th style={{ padding: '0.75rem 1rem' }}>Deadline</th>
               <th style={{ padding: '0.75rem 1rem' }}>Questions</th>
               <th style={{ padding: '0.75rem 1rem' }}>Responses</th>
               <th style={{ padding: '0.75rem 1rem' }}>Created</th>
@@ -145,6 +149,8 @@ export function OwnerSurveysView({
                       {s.status}
                     </span>
                   </td>
+                  <td style={{ padding: '0.85rem 1rem' }}>{s.responseMode ?? 'IDENTIFIED'}</td>
+                  <td style={{ padding: '0.85rem 1rem' }}>{s.closesAt ? new Date(s.closesAt).toLocaleDateString() : '-'}</td>
                   <td style={{ padding: '0.85rem 1rem', color: '#475569' }}>
                     {s.questions.length} questions
                   </td>

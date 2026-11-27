@@ -43,6 +43,11 @@ export const createSurveySchema = z.object({
     .max(150, 'Title cannot exceed 150 characters'),
   description: z.string().trim().max(1000).optional(),
   responseMode: z.enum(['IDENTIFIED', 'ANONYMOUS']).optional().default('IDENTIFIED'),
+  closesAt: z
+    .string()
+    .datetime({ message: 'closesAt must be a valid ISO-8601 datetime string' })
+    .nullable()
+    .optional(),
   questions: z
     .array(questionInputSchema)
     .max(30, 'A survey can have at most 30 questions')

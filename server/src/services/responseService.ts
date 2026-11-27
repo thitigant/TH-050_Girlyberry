@@ -181,11 +181,16 @@ export class ResponseService {
         },
       });
 
+      // F-13: Redact respondentId in anonymous submission receipt (AC-24)
+      const isAnonymous = survey.responseMode === 'ANONYMOUS';
       return {
         responseId: created.id,
         surveyId: created.surveyId,
+        respondentId: isAnonymous ? null : created.respondentId,
         submittedAt: created.submittedAt,
         answersRecorded: answersData.length,
+        isAnonymous,
+        responseMode: survey.responseMode,
       };
     } catch (error: unknown) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -241,6 +246,13 @@ export class ResponseService {
 
     if (!response) {
       throw new AppError(404, 'RESPONSE_NOT_FOUND', 'No submission found for this survey');
+    }
+
+    // Redact respondentId for anonymous surveys (F-13)
+    const isAnonymous = response.Survey?.responseMode === 'ANONYMOUS';
+    if (isAnonymous) {
+      // remove respondentId field from response object
+      (response as any).respondentId = null;
     }
 
     return response;

@@ -12,7 +12,9 @@ export function CreateSurveyView({
   onCancel,
   onCreateSurvey,
 }: CreateSurveyViewProps) {
-  const [title, setTitle] = useState('');
+  const [responseMode, setResponseMode] = useState<'IDENTIFIED' | 'ANONYMOUS'>('IDENTIFIED');
+  const [closesAt, setClosesAt] = useState('');
+
   const [category, setCategory] = useState('Course Evaluation');
   const [description, setDescription] = useState('');
   const [questions, setQuestions] = useState<Question[]>([
@@ -94,6 +96,8 @@ export function CreateSurveyView({
       status,
       ownerEmail,
       questions,
+      responseMode,
+      closesAt: closesAt || undefined,
     });
   };
 

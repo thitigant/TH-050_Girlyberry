@@ -31,6 +31,8 @@ export interface Survey {
   description?: string;
   category: string;
   status: SurveyStatus;
+  responseMode?: 'IDENTIFIED' | 'ANONYMOUS';
+  closesAt?: string;
   ownerId: string;
   ownerEmail?: string;
   createdAt: string;

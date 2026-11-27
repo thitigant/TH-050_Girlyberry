@@ -3,7 +3,7 @@
 **Semester:** 1/2026  
 **Theme 10:** Review, Feedback, and Survey System  
 **Product Title:** UniPulse – Campus Feedback & Course Survey Platform  
-**Document Version:** 1.1.0 (Deliverable 1 Baseline)  
+**Document Version:** 1.2.0 (Revised for Lab 7 Change Request #35 — k-Anonymity Privacy Quorum & Lifecycle Gate)  
 
 ---
 
@@ -74,6 +74,7 @@ All business validation, RBAC, ownership verification, state machine constraints
 |     revokedAt : Date  |   |     description  : String?         |
 +-----------------------+   |     status       : SurveyStatus    |
                             |     responseMode : ResponseMode    |
+                            |     minResponsesForSummary : Int   |
                             |     publishedAt  : DateTime?       |
                             |     closedAt     : DateTime?       |
                             |     closesAt     : DateTime?       |
@@ -116,7 +117,7 @@ All business validation, RBAC, ownership verification, state machine constraints
 ### 2.2 Relational Model Dictionary
 1. **User:** System identities with roles (`SURVEY_OWNER` or `RESPONDENT`). Passwords hashed with bcrypt cost 12.
 2. **RevokedToken:** Blacklist of invalidated JWT IDs (`jti`) created upon logout (`POST /api/v1/auth/logout`).
-3. **Survey:** Course evaluations owned by a `User`. Lifecycle states: `DRAFT`, `PUBLISHED`, `CLOSED`.
+3. **Survey:** Course evaluations owned by a `User`. Lifecycle states: `DRAFT`, `PUBLISHED`, `CLOSED`. Includes `minResponsesForSummary` (`Int @default(3)`, valid `1..20`, added per Lab 7 Issue #35) governing the live-analytics k-anonymity privacy quorum.
 4. **Question:** Ordered survey questions belonging to a `Survey`. Types: `SINGLE_CHOICE`, `RATING`, `SHORT_TEXT`.
 5. **QuestionOption:** Allowed choices for `SINGLE_CHOICE` questions (2–10 options per question).
 6. **Response:** Identified survey submission header linking `Survey` and `User` (respondent). Enforces `@@unique([surveyId, respondentId])` to prevent duplicate submissions.
@@ -129,7 +130,7 @@ All business validation, RBAC, ownership verification, state machine constraints
 The client application (`client/`) provides responsive views with centralized state management and consistent shared UI states:
 - **Authentication Header (`AuthHeader.tsx`):** Displays logged-in identity, active role badge, quick demo switchers, and Sign-Out action.
 - **Survey Owner Portal (`OwnerSurveysView.tsx` & `CreateSurveyView.tsx`):** Lists authored surveys categorized by status (`DRAFT`, `PUBLISHED`, `CLOSED`), draft creation form with live validation limits, and action controls for `Publish` and `Close`.
-- **Owner Aggregate Analytics Dashboard (`SurveySummaryDashboard.tsx`):** Displays total submission counts, rating averages (1–5 scale), response distributions, and option percentages. Excludes PII (`NFR-12`).
+- **Owner Aggregate Analytics Dashboard (`SurveySummaryDashboard.tsx`):** Displays total submission counts, rating averages (1–5 scale), response distributions, and option percentages. Excludes PII (`NFR-12`) and renders a Privacy Quorum locked notice when `privacyLocked === true` (`PUBLISHED` with `totalResponses < minResponsesForSummary`, Lab 7 Issue #35), unlocking automatically once quorum is met or the survey is `CLOSED`.
 - **Respondent Catalog (`BrowseSurveysView.tsx`):** Shows only active `PUBLISHED` surveys with deadline indicators and personal completion tags (`Completed` vs `Start Survey`). Non-published drafts are strictly hidden (`NFR-11`).
 - **Survey Taking View (`SurveyTakingView.tsx`):** Multi-type question form with validation for required fields, rating selections [1, 5], and submission handling.
 - **Personal Receipts View (`ReceiptsView.tsx`):** Displays personal confirmation cards with receipt ID, submission timestamp, and submitted answers.
@@ -208,7 +209,7 @@ The following authoritative error codes are enforced in `server/src/utils/errors
 | `/api/v1/surveys/:id/responses` | POST | Reject (401) | Allow | Allow* | *Owner cannot respond to own survey (`BR-07`); single submission (`BR-06`) |
 | `/api/v1/surveys/:id/responses/me` | GET | Reject (401) | Allow | Reject (403) | Scoped strictly to calling respondent ID |
 | `/api/v1/responses/:id` | GET | Reject (401) | Allow* | Reject (403) | *Scoped strictly to receipt owner; 404 on cross-access (`BR-08`) |
-| `/api/v1/surveys/:id/summary` | GET | Reject (401) | Reject (403) | Allow* | *Owner only; returns aggregate statistics without PII (`NFR-12`) |
+| `/api/v1/surveys/:id/summary` | GET | Reject (401) | Reject (403) | Allow* | *Owner only (`403 FORBIDDEN_OWNERSHIP` for other owners); suppresses per-question breakdown while `PUBLISHED` and `totalResponses < minResponsesForSummary` (`privacyLocked: true`), unlocks at quorum or `CLOSED` (`NFR-12`, Lab 7 #35) |
 
 ---
 

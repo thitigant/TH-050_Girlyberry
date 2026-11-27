@@ -72,22 +72,23 @@ model RevokedToken {
 }
 
 model Survey {
-  id                String       @id
-  ownerId           String
-  title             String
-  description       String?
-  status            SurveyStatus @default(DRAFT)
-  responseMode      ResponseMode @default(IDENTIFIED)
-  accessCode        String?      // F-16: optional cohort access code (3-32 chars)
-  allowedEmailDomain String?     // F-16: optional email domain filter (e.g. "@kmutt.ac.th")
-  publishedAt       DateTime?
-  closedAt          DateTime?
-  closesAt          DateTime?
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime
-  Question          Question[]
-  Response          Response[]
-  User              User         @relation(fields: [ownerId], references: [id])
+  id                 String       @id
+  ownerId            String
+  title              String
+  description        String?
+  status             SurveyStatus @default(DRAFT)
+  responseMode       ResponseMode @default(IDENTIFIED)
+  minResponsesForSummary Int      @default(3)
+  accessCode         String?      // F-16: optional cohort access code (3-32 chars)
+  allowedEmailDomain String?      // F-16: optional email domain filter (e.g. "@kmutt.ac.th")
+  publishedAt        DateTime?
+  closedAt           DateTime?
+  closesAt           DateTime?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime
+  Question           Question[]
+  Response           Response[]
+  User               User         @relation(fields: [ownerId], references: [id])
 
   @@index([ownerId])
   @@index([status])

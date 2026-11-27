@@ -37,6 +37,7 @@ export class SurveyService {
         description: input.description,
         status: SurveyStatus.DRAFT,
         responseMode: (input.responseMode as ResponseMode) || ResponseMode.IDENTIFIED,
+        minResponsesForSummary: input.minResponsesForSummary ?? 3,
         closesAt: input.closesAt ? new Date(input.closesAt) : null,
         accessCode: (input as any).accessCode ?? null,
         allowedEmailDomain: (input as any).allowedEmailDomain ?? null,

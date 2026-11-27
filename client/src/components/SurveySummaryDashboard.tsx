@@ -35,6 +35,9 @@ export interface SurveyAnalyticsData {
   title: string;
   status: 'DRAFT' | 'PUBLISHED' | 'CLOSED';
   totalResponses: number;
+  minResponsesForSummary?: number;
+  privacyLocked?: boolean;
+  privacyReason?: string | null;
   questions: QuestionSummary[];
 }
 
@@ -179,8 +182,32 @@ export const SurveySummaryDashboard: React.FC<Props> = ({ surveyId, initialData,
         </div>
       </div>
 
+      {/* Privacy Quorum Locked Banner (Lab 7 F-12) */}
+      {data.privacyLocked && (
+        <div
+          data-testid="privacy-locked-banner"
+          style={{
+            background: '#fffbeb',
+            border: '1px solid #fde68a',
+            borderRadius: '8px',
+            padding: '2rem',
+            textAlign: 'center',
+            color: '#92400e',
+            marginBottom: '1.5rem',
+          }}
+        >
+          <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🔒</div>
+          <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', color: '#b45309' }}>
+            Privacy Quorum Not Met ({data.totalResponses} / {data.minResponsesForSummary ?? 3} responses)
+          </h3>
+          <p style={{ margin: 0, fontSize: '0.95rem', color: '#78350f', maxWidth: '600px', marginLeft: 'auto', marginRight: 'auto' }}>
+            {data.privacyReason || 'Analytics details are hidden to protect respondent privacy until the minimum quorum is met or the survey is closed.'}
+          </p>
+        </div>
+      )}
+
       {/* Graceful zero-response state banner */}
-      {data.totalResponses === 0 && (
+      {!data.privacyLocked && data.totalResponses === 0 && (
         <div
           style={{
             background: '#f8fafc',

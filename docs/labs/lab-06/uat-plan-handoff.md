@@ -1,13 +1,14 @@
 # CPE 334 Lab 6 — Part A: Sprint 1 User Acceptance Test (UAT) Plan & Safe Handoff Package
 
 - **Product Team:** Team TH-050 Girlyberry
-  - **Student 1:** Thitigant Surayothin (`67070505214`, GitHub: `@thitigant`)
-  - **Student 2:** Jinjuta Nannarumit (`67070505210`, GitHub: `@Ponatinylilbug`)
+  - **Student 1:** Thitigant Surayotin (`67070505214`, GitHub: `@thitigant`)
+  - **Student 2:** Jinjuta Nunnarumit (`67070505210`, GitHub: `@Ponatinylilbug`)
 - **Theme 10:** Review, Feedback, and Survey System — **UniPulse: Campus Feedback & Course Survey Platform**
 - **Public Repository URL:** https://github.com/thitigant/TH-050_Girlyberry
-- **Sprint 1 Baseline Tag / Release Commit:**
+- **Sprint 1 Baseline Tag / Release Commit & Deployed Cloud Run Revision:**
   - **Original Sprint 1 Baseline Tag:** `v1.0-sprint1` (Commit `9a0ede4` / Release PR #17 `3dc7521`)
   - **Tested Deployed Cloud Run Release Commit:** `0405ffd` (PR #28 on `main`, serving badge `Cloud v1.1`)
+  - **Active Deployed Cloud Run Revision:** `s17b15028-00005-l28`
 - **Deployed Public Application URL (GCP Cloud Run):**
   - **Live URL:** https://s17b15028-4d7hbszvwq-as.a.run.app
   - **Health / Readiness Probes:**
@@ -47,7 +48,7 @@
 | :--- | :--- | :--- | :--- |
 | **`OWNER_1`** | `owner1@unipulse.edu` | `SURVEY_OWNER` | Primary instructor account for creating, publishing, closing, and inspecting analytics of own surveys (`UAT-01`, `UAT-02`, `UAT-04`, `UAT-06`). |
 | **`OWNER_2`** | `owner2@unipulse.edu` | `SURVEY_OWNER` | Secondary instructor account used to verify cross-owner isolation (`403 FORBIDDEN_OWNERSHIP` / `404 SURVEY_NOT_FOUND` on `OWNER_1` surveys in `UAT-05`). |
-| **`STUDENT_1`** | `student1@unipulse.edu` | `RESPONDENT` | Primary student respondent account for browsing published surveys, submitting feedback, testing duplicate prevention (`409 Conflict`), and checking receipts (`UAT-01`, `UAT-03`, `UAT-04`, `UAT-06`). |
+| **`STUDENT_1`** | `student1@unipulse.edu` | `RESPONDENT` | Primary student respondent account for browsing published surveys, submitting feedback, testing duplicate prevention (`409 Conflict`), verifying role/draft restrictions, and checking receipts (`UAT-02`, `UAT-03`, `UAT-04`, `UAT-05`, `UAT-06`). |
 | **`STUDENT_2`** | `student2@unipulse.edu` | `RESPONDENT` | Secondary student respondent account for independent submission and cross-respondent receipt privacy testing (`UAT-05`). |
 
 ### 2.2 Execution Sequence, Data Setup & Reset / Cleanup Instructions

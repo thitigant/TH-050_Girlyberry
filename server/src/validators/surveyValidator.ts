@@ -3,23 +3,23 @@ import { z } from 'zod';
 export const questionInputSchema = z
   .object({
     text: z.string().trim().min(1, 'Question text cannot be empty').max(500, 'Question text too long'),
-    type: z.enum(['SINGLE_CHOICE', 'RATING', 'SHORT_TEXT']),
+    type: z.enum(['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'RATING', 'LIKERT_SCALE', 'SHORT_TEXT']),
     isRequired: z.boolean().optional().default(true),
     displayOrder: z.number().int().optional(),
     options: z.array(z.string().trim().min(1, 'Option label cannot be empty')).optional(),
   })
   .superRefine((val, ctx) => {
-    if (val.type === 'SINGLE_CHOICE') {
+    if (val.type === 'SINGLE_CHOICE' || val.type === 'MULTIPLE_CHOICE') {
       if (!val.options || val.options.length < 2) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'Single choice questions must have at least 2 options',
+          message: `${val.type === 'MULTIPLE_CHOICE' ? 'Multiple' : 'Single'} choice questions must have at least 2 options`,
           path: ['options'],
         });
       } else if (val.options.length > 10) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'Single choice questions cannot exceed 10 options',
+          message: `${val.type === 'MULTIPLE_CHOICE' ? 'Multiple' : 'Single'} choice questions cannot exceed 10 options`,
           path: ['options'],
         });
       } else {
@@ -27,7 +27,7 @@ export const questionInputSchema = z
         if (uniqueSet.size !== val.options.length) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: 'Single choice options must be unique',
+            message: `${val.type === 'MULTIPLE_CHOICE' ? 'Multiple' : 'Single'} choice options must be unique`,
             path: ['options'],
           });
         }
@@ -50,6 +50,25 @@ export const createSurveySchema = z.object({
     .max(20, 'minResponsesForSummary cannot exceed 20')
     .optional()
     .default(3),
+  closesAt: z
+    .string()
+    .datetime({ message: 'closesAt must be a valid ISO-8601 datetime string' })
+    .nullable()
+    .optional(),
+  // F-16: Cohort Access Control
+  accessCode: z
+    .string()
+    .trim()
+    .min(3, 'Access code must be at least 3 characters')
+    .max(32, 'Access code cannot exceed 32 characters')
+    .nullable()
+    .optional(),
+  allowedEmailDomain: z
+    .string()
+    .trim()
+    .regex(/^@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 'allowedEmailDomain must start with @ (e.g. @kmutt.ac.th)')
+    .nullable()
+    .optional(),
   questions: z
     .array(questionInputSchema)
     .max(30, 'A survey can have at most 30 questions')

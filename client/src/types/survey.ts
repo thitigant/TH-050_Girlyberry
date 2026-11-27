@@ -8,7 +8,7 @@ export interface AuthUser {
 }
 
 export type SurveyStatus = 'DRAFT' | 'PUBLISHED' | 'CLOSED';
-export type QuestionType = 'RATING' | 'SINGLE_CHOICE' | 'SHORT_TEXT';
+export type QuestionType = 'RATING' | 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'LIKERT_SCALE' | 'SHORT_TEXT';
 
 export interface QuestionOption {
   id: string;
@@ -33,8 +33,12 @@ export interface Survey {
   description?: string;
   category: string;
   status: SurveyStatus;
-  responseMode?: ResponseMode;
+  responseMode?: 'IDENTIFIED' | 'ANONYMOUS';
   minResponsesForSummary?: number;
+  closesAt?: string;
+  accessCode?: string;
+  allowedEmailDomain?: string;
+  requiresAccessCode?: boolean;
   ownerId: string;
   ownerEmail?: string;
   createdAt: string;
@@ -59,6 +63,7 @@ export interface AnswerInput {
   ratingValue?: number;
   textValue?: string;
   selectedOptionId?: string;
+  selectedOptionIds?: string[];
 }
 
 export interface SubmissionReceipt {

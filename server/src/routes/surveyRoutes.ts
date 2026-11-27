@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { surveyController } from '../controllers/surveyController.js';
 import { responseController } from '../controllers/responseController.js';
 import { analyticsController } from '../controllers/analyticsController.js';
+import { exportController } from '../controllers/exportController.js';
 import { requireAuth, requireRole } from '../middleware/authMiddleware.js';
 import { Role } from '@prisma/client';
 
@@ -31,9 +32,10 @@ router.post('/:id/close', requireAuth, requireRole(Role.SURVEY_OWNER), (req, res
   surveyController.closeSurvey(req, res, next)
 );
 
-router.delete('/:id', requireAuth, requireRole(Role.SURVEY_OWNER), (req, res, next) =>
-  surveyController.deleteSurvey(req, res, next)
+router.post('/:id/duplicate', requireAuth, requireRole(Role.SURVEY_OWNER), (req, res, next) =>
+  surveyController.duplicateSurvey(req, res, next)
 );
+
 
 // Response Submission & Receipt routes (F-06 & F-07)
 router.post('/:id/responses', requireAuth, (req, res, next) =>
@@ -53,6 +55,11 @@ router.get('/:id/analytics', requireAuth, requireRole(Role.SURVEY_OWNER), (req, 
 
 router.get('/:id/summary', requireAuth, requireRole(Role.SURVEY_OWNER), (req, res, next) =>
   analyticsController.getSurveySummary(req, res, next)
+);
+
+// F-19: Survey Results Export (AC-38, AC-39, AC-40)
+router.get('/:id/export', requireAuth, requireRole(Role.SURVEY_OWNER), (req, res, next) =>
+  exportController.exportSurvey(req, res, next)
 );
 
 export default router;

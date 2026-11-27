@@ -108,6 +108,7 @@ export class AnalyticsService {
         surveyId: survey.id,
         title: survey.title,
         status: survey.status,
+        responseMode: survey.responseMode,
         totalResponses,
         minResponsesForSummary: survey.minResponsesForSummary,
         privacyLocked: true,
@@ -118,7 +119,7 @@ export class AnalyticsService {
 
     // 5. Compute aggregate metrics per question
     const questionsSummary = survey.Question.map((q) => {
-      if (q.type === QuestionType.RATING) {
+      if (q.type === QuestionType.RATING || q.type === QuestionType.LIKERT_SCALE) {
         const qAnswers = ratingAnswers.filter((a) => a.questionId === q.id);
         const scores = qAnswers.map((a) => a.ratingValue as number);
         const summary = computeRatingSummary(scores);
@@ -166,6 +167,40 @@ export class AnalyticsService {
         };
       }
 
+      if (q.type === QuestionType.MULTIPLE_CHOICE) {
+        // selectedOptionIds stored as JSON array in textValue (preserves @@unique([responseId, questionId]))
+        const qTextAnswers = textAnswers.filter((a) => a.questionId === q.id);
+        const countsByOption = new Map<string, number>();
+        let totalResponses = 0;
+
+        for (const a of qTextAnswers) {
+          if (!a.textValue) continue;
+          try {
+            const ids: string[] = JSON.parse(a.textValue);
+            totalResponses++;
+            for (const id of ids) {
+              countsByOption.set(id, (countsByOption.get(id) || 0) + 1);
+            }
+          } catch {
+            // ignore corrupt rows
+          }
+        }
+
+        const optionsSummary = q.QuestionOption.map((opt) => {
+          const count = countsByOption.get(opt.id) || 0;
+          const percentage =
+            totalResponses > 0 ? Number(((count / totalResponses) * 100).toFixed(1)) : 0;
+          return { optionId: opt.id, label: opt.label, count, percentage };
+        });
+
+        return {
+          questionId: q.id,
+          prompt: q.text,
+          questionType: q.type,
+          summary: { totalSelections: totalResponses, options: optionsSummary },
+        };
+      }
+
       // SHORT_TEXT (safely capped to 100 entries to prevent unbounded payload size)
       const qAnswers = textAnswers.filter((a) => a.questionId === q.id);
       const validTexts = qAnswers
@@ -188,6 +223,7 @@ export class AnalyticsService {
       surveyId: survey.id,
       title: survey.title,
       status: survey.status,
+      responseMode: survey.responseMode,
       totalResponses,
       minResponsesForSummary: survey.minResponsesForSummary,
       privacyLocked: false,

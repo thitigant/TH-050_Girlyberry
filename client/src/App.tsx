@@ -563,6 +563,42 @@ function UniPulseMain() {
     setActiveTab('owner_surveys');
   };
 
+  const handleDuplicateSurvey = async (surveyId: string) => {
+    if (currentUser?.token) {
+      try {
+        const res = await fetch(`/api/surveys/${surveyId}/duplicate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${currentUser.token}`,
+          },
+        });
+        if (res.ok) {
+          const body = await res.json();
+          if (body.data) {
+            setSurveys((prev) => [body.data, ...prev]);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to duplicate on server:', err);
+      }
+    }
+    // Local fallback clone
+    const src = surveys.find((s) => s.id === surveyId);
+    if (!src) return;
+    const cloned: Survey = {
+      ...src,
+      id: `srv_${Date.now()}`,
+      title: `Copy of ${src.title}`.slice(0, 150),
+      status: 'DRAFT',
+      createdAt: new Date().toISOString(),
+      publishedAt: undefined,
+      closedAt: undefined,
+    };
+    setSurveys((prev) => [cloned, ...prev]);
+  };
+
   const handleSubmitAnswers = async (
     answers: AnswerInput[]
   ): Promise<{ success: boolean; error?: string; receiptId?: string }> => {
@@ -1121,6 +1157,7 @@ function UniPulseMain() {
                 onPublish={handlePublishSurvey}
                 onCloseSurvey={handleCloseSurvey}
                 onDeleteSurvey={handleDeleteSurvey}
+                onDuplicateSurvey={handleDuplicateSurvey}
                 onViewAnalytics={handleViewAnalyticsForSurvey}
                 onOpenCreate={() => setActiveTab('create_survey')}
               />

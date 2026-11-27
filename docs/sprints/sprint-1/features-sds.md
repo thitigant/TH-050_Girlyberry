@@ -1,7 +1,7 @@
 # Sprint 1 Feature Engineering Contracts (Part E)
 **Course:** CPE 334 Introduction to Software Engineering in the Age of AI Agents  
 **Theme 10:** Review, Feedback, and Survey System (UniPulse)  
-**Document Version:** 1.0.0 (Pre-Implementation Baseline)  
+**Document Version:** 1.1.0 (Revised for Lab 7 Change Request #35 — k-Anonymity Privacy Quorum & Lifecycle Gate)  
 
 ---
 
@@ -107,11 +107,12 @@ This document specifies pre-implementation engineering contracts for all feature
      {
        "title": "CPE 334 Lab 4 Course Feedback",
        "description": "Please provide your candid review of Lab 4 modules.",
-       "category": "Course Evaluation"
+       "category": "Course Evaluation",
+       "minResponsesForSummary": 3
      }
      ```
-   - **Validation:** Title (5–120 characters); description (optional, $\le 500$ chars); status defaults to `DRAFT`.
-   - **Response (201 Created):** `{ "data": { "id": "srv_001", "status": "DRAFT", ... } }`
+   - **Validation:** Title (5–120 characters); description (optional, $\le 500$ chars); `minResponsesForSummary` (optional integer `1..20`, defaults to `3`, added per Lab 7 Issue #35 — values `< 1`, `> 20`, or non-integers rejected with `HTTP 400 INVALID_PAYLOAD`); status defaults to `DRAFT`.
+   - **Response (201 Created):** `{ "data": { "id": "srv_001", "status": "DRAFT", "minResponsesForSummary": 3, ... } }`
 
 2. **Add Question to Survey:** `POST /api/v1/surveys/:id/questions`
    - **Headers:** `Authorization: Bearer <owner_token>`
@@ -137,6 +138,7 @@ This document specifies pre-implementation engineering contracts for all feature
 - **AC-09:** Owner can add Text, Single Choice, and Rating questions to draft surveys.
 - **AC-10:** Adding a 26th question to a survey draft is rejected with HTTP 422.
 - **AC-11:** Modifying questions on a survey that is already `PUBLISHED` or `CLOSED` returns HTTP 400.
+- **AC-L7-01 (Lab 7 #35):** Survey Owner may optionally specify `minResponsesForSummary` (`1..20`, default `3`) when creating a draft survey; values `< 1`, `> 20`, or non-integers are rejected with HTTP 400 `INVALID_PAYLOAD`.
 
 ---
 
@@ -232,11 +234,13 @@ This document specifies pre-implementation engineering contracts for all feature
    - **Headers:** `Authorization: Bearer <respondent_token>`
    - **Response (200 OK):** List of surveys submitted by current user with submission timestamps and answers.
 
-2. **Get Survey Aggregate Analytics:** `GET /api/v1/surveys/:id/analytics`
+2. **Get Survey Aggregate Analytics:** `GET /api/surveys/:id/summary` (alias `GET /api/surveys/:id/analytics`)
    - **Headers:** `Authorization: Bearer <owner_token>`
-   - **Pre-Conditions:** User must be the owner of the survey (`BR-10`).
-   - **Behavior:** Executes SQL aggregate queries (`COUNT`, `AVG`, `GROUP BY`) across recorded answers. Does NOT expose individual respondent identities or row-level respondent mappings.
-   - **Response (200 OK):**
+   - **Pre-Conditions:** User must be the owner of the survey (`BR-10`); `RESPONDENT` receives `403 FORBIDDEN_ROLE` and another `SURVEY_OWNER` receives `403 FORBIDDEN_OWNERSHIP` **before** quorum evaluation.
+   - **Behavior (Revised per Lab 7 Issue #35):** Executes SQL aggregate queries (`COUNT`, `AVG`, `GROUP BY`) across recorded answers without exposing respondent identities (`NFR-12`). Evaluates the k-anonymity privacy gate:
+     - **Locked (`status === 'PUBLISHED'` AND `totalResponses < minResponsesForSummary`):** Returns `privacyLocked: true`, descriptive `privacyReason`, and `questions: []` (suppresses per-question averages, choice counts, and `SHORT_TEXT` answers).
+     - **Unlocked (`totalResponses >= minResponsesForSummary` OR `status === 'CLOSED'`):** Returns `privacyLocked: false`, `privacyReason: null`, and full aggregate `questions` breakdown.
+   - **Response (200 OK — Unlocked):**
      ```json
      {
        "data": {
@@ -244,6 +248,9 @@ This document specifies pre-implementation engineering contracts for all feature
          "title": "CPE 334 Lab 4 Course Feedback",
          "status": "PUBLISHED",
          "totalResponses": 24,
+         "minResponsesForSummary": 3,
+         "privacyLocked": false,
+         "privacyReason": null,
          "questions": [
            {
              "questionId": "qst_003",
@@ -271,8 +278,26 @@ This document specifies pre-implementation engineering contracts for all feature
        }
      }
      ```
+   - **Response (200 OK — Privacy Locked while `PUBLISHED` below quorum):**
+     ```json
+     {
+       "data": {
+         "surveyId": "srv_001",
+         "title": "CPE 334 Lab 4 Course Feedback",
+         "status": "PUBLISHED",
+         "totalResponses": 2,
+         "minResponsesForSummary": 3,
+         "privacyLocked": true,
+         "privacyReason": "Analytics details are hidden to protect respondent privacy until at least 3 responses are collected or the survey is closed.",
+         "questions": []
+       }
+     }
+     ```
 
 ### Acceptance Criteria
-- **AC-20:** Survey Owner views aggregate metrics including total responses, average rating, and option frequencies.
+- **AC-20:** Survey Owner views aggregate metrics including total responses, average rating, and option frequencies when unlocked.
 - **AC-21:** Aggregate analytics endpoint returns zero respondent-identifying information, preserving voter anonymity in summaries.
 - **AC-22:** Non-owner requesting analytics for another owner's survey is rejected with HTTP 403 `FORBIDDEN_OWNERSHIP`.
+- **AC-L7-02 (Lab 7 #35):** When a `PUBLISHED` survey has `totalResponses < minResponsesForSummary` (including boundary `minResponsesForSummary - 1`), `GET /api/surveys/:id/summary` returns `privacyLocked: true`, a non-empty `privacyReason`, accurate `totalResponses`, and `questions: []`.
+- **AC-L7-03 (Lab 7 #35):** When a `PUBLISHED` survey reaches `totalResponses >= minResponsesForSummary` (exact boundary `totalResponses === minResponsesForSummary`), `GET /api/surveys/:id/summary` returns `privacyLocked: false`, `privacyReason: null`, and full per-question aggregates.
+- **AC-L7-04 (Lab 7 #35):** When the owner closes a survey (`status === 'CLOSED'`) with `totalResponses < minResponsesForSummary`, the lifecycle override unlocks analytics (`privacyLocked: false`, `privacyReason: null`) and returns full per-question aggregates.

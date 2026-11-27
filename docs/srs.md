@@ -3,7 +3,7 @@
 **Semester:** 1/2026  
 **Theme 10:** Review, Feedback, and Survey System  
 **Product Title:** UniPulse – Campus Feedback & Course Survey Platform  
-**Document Version:** 1.0.0 (Baseline for Deliverable 1)  
+**Document Version:** 1.1.0 (Revised for Lab 7 Change Request #35 — k-Anonymity Privacy Quorum & Lifecycle Gate)  
 
 ---
 
@@ -58,7 +58,7 @@ In university environments and academic organizations, gathering structured feed
 | **FR-02** | User Authentication | System shall authenticate users via email and password, returning a signed JWT access token upon success. | Sprint 1 |
 | **FR-03** | Identity Retrieval | System shall provide a `/api/auth/me` endpoint to retrieve authenticated user profile and assigned role. | Sprint 1 |
 | **FR-04** | User Logout | System shall terminate user session and record token hash in `RevokedToken` table to invalidate subsequent requests. | Sprint 1 |
-| **FR-05** | Create Draft Survey | Survey Owners shall be able to create new survey headers with title, description, and target category. | Sprint 1 |
+| **FR-05** | Create Draft Survey | Survey Owners shall be able to create new survey headers with title, description, target category, and optional `minResponsesForSummary` privacy quorum threshold (`1..20`, default `3`; revised per Lab 7 Issue #35). | Sprint 1 (Rev. Lab 7) |
 | **FR-06** | Question Authoring | Survey Owners shall add, edit, order, and delete questions (Text, Single Choice, Rating) within draft surveys. | Sprint 1 |
 | **FR-07** | Update Draft Survey | Survey Owners shall edit metadata and question details while survey remains in `DRAFT` status. | Sprint 1 |
 | **FR-08** | Publish Survey | Survey Owners shall transition a draft survey to `PUBLISHED` status, opening it for responses. | Sprint 1 |
@@ -69,7 +69,7 @@ In university environments and academic organizations, gathering structured feed
 | **FR-13** | Validation of Responses | Server shall validate that all required questions have valid answers adhering to question type rules. | Sprint 1 |
 | **FR-14** | Duplicate Rejection | Server shall detect and reject subsequent response submissions from the same respondent for the same survey. | Sprint 1 |
 | **FR-15** | Personal Submission History | Respondents shall view their own past submissions and verified answer records. | Sprint 1 |
-| **FR-16** | Aggregate Result Summary | Survey Owners shall view aggregate statistics for their own published or closed surveys. | Sprint 1 |
+| **FR-16** | Aggregate Result Summary | Survey Owners shall view aggregate statistics for their own published or closed surveys, subject to the k-anonymity privacy quorum while `PUBLISHED` and unlocked upon reaching quorum or `CLOSED` status (revised per Lab 7 Issue #35). | Sprint 1 (Rev. Lab 7) |
 | **FR-17** | Metric Computation | Server shall calculate total responses, average scores for rating questions, and percentage counts for choice questions. | Sprint 1 |
 | **FR-18** | Anonymous Response Mode | Survey Owners may enable anonymous mode where respondent identity is detached from response records with cryptographic proof. | Sprint 2 |
 | **FR-19** | Eligibility Restrictions | Survey Owners shall specify respondent eligibility criteria (e.g., specific academic cohorts/departments). | Sprint 2 |
@@ -91,7 +91,7 @@ In university environments and academic organizations, gathering structured feed
 | **BR-07** | A Survey Owner cannot submit responses to their own created surveys to prevent conflict of interest. | Server-side validation comparing `survey.ownerId` with `auth.userId`. |
 | **BR-08** | Respondents are strictly forbidden from viewing another respondent's individual answers or submissions. | Query-scoping (`WHERE respondentId = auth.userId`) returning HTTP 403/404. |
 | **BR-09** | *(Withdrawn per Change Proposal CP-02)* Replaced with explicit owner-controlled status transition and scheduled deadline. | Documented change governance in Part B. |
-| **BR-10** | Survey aggregate analytics, question details of drafts, and closure controls are restricted strictly to the survey's author. | Ownership authorization guard (`survey.ownerId === auth.userId`). |
+| **BR-10** | Survey aggregate analytics, question details of drafts, and closure controls are restricted strictly to the survey's author. *(Lab 7 Rev. #35):* While a survey is `PUBLISHED` and `totalResponses < minResponsesForSummary` (default `3`, configurable `1..20`), per-question analytics breakdowns and `SHORT_TEXT` answers are suppressed (`privacyLocked = true`) until quorum is met or the owner transitions the survey to `CLOSED`. | Ownership authorization guard (`survey.ownerId === auth.userId`) + AnalyticsService privacy quorum & lifecycle gate. |
 | **BR-11** | User passwords must be stored using bcrypt with a work factor (cost) of 12; plaintext passwords are strictly forbidden. | Authentication model pre-save hook. |
 | **BR-12** | Rating scale questions must accept numeric integer responses strictly within the inclusive range $[1, 5]$. | Input schema validation returning HTTP 422 if violated. |
 | **BR-13** | Text questions marked as required must have non-empty answer strings between 1 and 1000 characters. | Payload validator trimming whitespace. |
@@ -114,7 +114,7 @@ In university environments and academic organizations, gathering structured feed
 | **NFR-09** | Cloud Deployability | Application must be deployable to GCP Cloud Run with Cloud SQL database connectivity. | Sprint 2 / Lab 5: GCP deployment check. |
 | **NFR-10** | Seed Reproducibility | `npm run db:seed` command must execute idempotently, populating deterministic test accounts and sample surveys. | Sprint 1: CI seed test execution. |
 | **NFR-11** | Zero Draft Leakage | Public survey discovery endpoints must never return draft surveys or their questions to non-owner users. | Sprint 1: API authorization test (`TEST-10`). |
-| **NFR-12** | Privacy Guarantee | Individual response identities must not appear in aggregate survey summaries or statistical metrics. | Sprint 1: Unit & integration test (`TEST-28`). |
+| **NFR-12** | Privacy Guarantee | Individual response identities must not appear in aggregate survey summaries or statistical metrics; while `PUBLISHED`, per-question breakdowns are suppressed below `minResponsesForSummary` (Lab 7 Issue #35). | Sprint 1 / Lab 7: Automated tests (`TEST-28`, `TEST-L7-03`–`TEST-L7-05`). |
 
 ---
 

@@ -1,7 +1,7 @@
 # Software Test Specification (STS) – Sprint 1 (Part E)
 **Course:** CPE 334 Introduction to Software Engineering in the Age of AI Agents  
 **Theme 10:** Review, Feedback, and Survey System (UniPulse)  
-**Document Version:** 1.0.0  
+**Document Version:** 1.1.0 (Revised for Lab 7 Change Request #35 — k-Anonymity Privacy Quorum & Lifecycle Gate)  
 
 ---
 
@@ -60,3 +60,18 @@ As mandated by course policy, core business rules must be verified through demon
 - **TDD Candidate 2 (Empty Survey Publish Block BR-02 / TEST-16):** Test asserts rejection of publishing 0-question survey with HTTP 422. (Initial RED $\rightarrow$ GREEN after domain pre-check).
 - **TDD Candidate 3 (Owner Self-Response Prevention BR-07 / TEST-21):** Test asserts rejection of owner answering own survey with HTTP 403. (Initial RED $\rightarrow$ GREEN).
 - **TDD Candidate 4 (Rating Boundary Bounds BR-12 / TEST-31):** Test asserts rejection of out-of-range ratings ($<1$ or $>5$). (Initial RED $\rightarrow$ GREEN).
+
+---
+
+## 4. Lab 7 Maintenance Test Specifications (TEST-L7-01 to TEST-L7-06 — Issue #35)
+
+Planned automated tests covering the revised `F-03` / `F-12` / `BR-10` / `NFR-12` k-anonymity privacy quorum and lifecycle gate before code implementation:
+
+| Test ID | Linked AC | Test Level | Preconditions & Inputs | Execution Action | Expected Result |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **TEST-L7-01** | `AC-L7-01` | Integration / Default | Authenticated `OWNER_1` creates draft survey omitting `minResponsesForSummary`, and another with valid boundary `minResponsesForSummary: 1` and `20`. | `POST /api/surveys` | HTTP 201 Created; omitted defaults to `3`; boundary values `1` and `20` persist accurately in PostgreSQL. |
+| **TEST-L7-02** | `AC-L7-01` | Boundary / Validation | Authenticated `OWNER_1` submits `minResponsesForSummary: 0`, `21`, or `2.5` (non-integer). | `POST /api/surveys` | HTTP 400 Bad Request (`INVALID_PAYLOAD`); survey is not created. |
+| **TEST-L7-03** | `AC-L7-02` | Integration / TDD (RED→GREEN) | `PUBLISHED` survey with `minResponsesForSummary = 3` and `2` submitted responses (boundary `threshold - 1`). | `GET /api/surveys/:id/summary` as `OWNER_1` | HTTP 200 OK; `totalResponses === 2`, `minResponsesForSummary === 3`, `privacyLocked === true`, non-empty `privacyReason`, `questions` is `[]` (no text/rating breakdown leaked). |
+| **TEST-L7-04** | `AC-L7-03` | Integration / Boundary | Same `PUBLISHED` survey after 3rd distinct respondent submits (exact boundary `totalResponses === minResponsesForSummary === 3`). | `GET /api/surveys/:id/summary` as `OWNER_1` | HTTP 200 OK; `totalResponses === 3`, `privacyLocked === false`, `privacyReason === null`, full `questions` aggregate breakdown returned with zero PII. |
+| **TEST-L7-05** | `AC-L7-04` | Integration / Lifecycle Gate | `PUBLISHED` survey with `minResponsesForSummary = 3` and only `1` response (`privacyLocked === true`), then owner invokes `POST /api/surveys/:id/close`. | `GET /api/surveys/:id/summary` as `OWNER_1` after close | HTTP 200 OK; `status === 'CLOSED'`, `totalResponses === 1`, `privacyLocked === false`, `privacyReason === null`, full `questions` aggregate breakdown unlocked. |
+| **TEST-L7-06** | `AC-05`, `AC-22` | Security / Regression | `PUBLISHED` survey with `privacyLocked === true`; accessed by `STUDENT_1` and by `OWNER_2`. | `GET /api/surveys/:id/summary` | `STUDENT_1` receives HTTP 403 `FORBIDDEN_ROLE`; `OWNER_2` receives HTTP 403 `FORBIDDEN_OWNERSHIP` (authorization guard runs before privacy gate; zero metadata leaked). |

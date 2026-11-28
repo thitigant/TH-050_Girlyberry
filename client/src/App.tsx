@@ -15,6 +15,9 @@ const DEFAULT_ANALYTICS_DATA: SurveyAnalyticsData = {
   title: 'CPE 334 Software Engineering Course Evaluation (Sprint 1)',
   status: 'PUBLISHED',
   totalResponses: 24,
+  minResponsesForSummary: 3,
+  privacyLocked: false,
+  privacyReason: null,
   questions: [
     {
       questionId: 'qst_1',
@@ -505,6 +508,7 @@ function UniPulseMain() {
           body: JSON.stringify({
             title: newSurveyData.title,
             description: newSurveyData.description,
+            minResponsesForSummary: newSurveyData.minResponsesForSummary ?? 3,
             questions: newSurveyData.questions.map((q, idx) => ({
               text: q.prompt,
               type: q.questionType,
@@ -557,6 +561,42 @@ function UniPulseMain() {
     };
     setSurveys((prev) => [newSurvey, ...prev]);
     setActiveTab('owner_surveys');
+  };
+
+  const handleDuplicateSurvey = async (surveyId: string) => {
+    if (currentUser?.token) {
+      try {
+        const res = await fetch(`/api/surveys/${surveyId}/duplicate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${currentUser.token}`,
+          },
+        });
+        if (res.ok) {
+          const body = await res.json();
+          if (body.data) {
+            setSurveys((prev) => [body.data, ...prev]);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to duplicate on server:', err);
+      }
+    }
+    // Local fallback clone
+    const src = surveys.find((s) => s.id === surveyId);
+    if (!src) return;
+    const cloned: Survey = {
+      ...src,
+      id: `srv_${Date.now()}`,
+      title: `Copy of ${src.title}`.slice(0, 150),
+      status: 'DRAFT',
+      createdAt: new Date().toISOString(),
+      publishedAt: undefined,
+      closedAt: undefined,
+    };
+    setSurveys((prev) => [cloned, ...prev]);
   };
 
   const handleSubmitAnswers = async (
@@ -693,11 +733,27 @@ function UniPulseMain() {
     const baseTotal = isDefaultDemoSurvey ? DEFAULT_ANALYTICS_DATA.totalResponses : 0;
     const addedCount = useDbSummary ? dbSummary.totalResponses : extraSubmissions.length;
 
+    if (dbSummary?.privacyLocked) {
+      return {
+        surveyId: targetSurvey.id,
+        title: targetSurvey.title,
+        status: targetSurvey.status,
+        totalResponses: dbSummary.totalResponses,
+        minResponsesForSummary: dbSummary.minResponsesForSummary,
+        privacyLocked: true,
+        privacyReason: dbSummary.privacyReason,
+        questions: [],
+      };
+    }
+
     return {
       surveyId: targetSurvey.id,
       title: targetSurvey.title,
       status: targetSurvey.status,
       totalResponses: baseTotal + addedCount,
+      minResponsesForSummary: dbSummary?.minResponsesForSummary ?? targetSurvey.minResponsesForSummary ?? 3,
+      privacyLocked: false,
+      privacyReason: null,
       questions: targetSurvey.questions.map((q) => {
         const qAnswers = extraSubmissions
           .map((ansList) => ansList.find((a) => a.questionId === q.id))
@@ -1101,6 +1157,7 @@ function UniPulseMain() {
                 onPublish={handlePublishSurvey}
                 onCloseSurvey={handleCloseSurvey}
                 onDeleteSurvey={handleDeleteSurvey}
+                onDuplicateSurvey={handleDuplicateSurvey}
                 onViewAnalytics={handleViewAnalyticsForSurvey}
                 onOpenCreate={() => setActiveTab('create_survey')}
               />

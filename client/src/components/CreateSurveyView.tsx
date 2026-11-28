@@ -13,8 +13,12 @@ export function CreateSurveyView({
   onCreateSurvey,
 }: CreateSurveyViewProps) {
   const [title, setTitle] = useState('');
+  const [responseMode, setResponseMode] = useState<'IDENTIFIED' | 'ANONYMOUS'>('IDENTIFIED');
+  const [closesAt, setClosesAt] = useState('');
+
   const [category, setCategory] = useState('Course Evaluation');
   const [description, setDescription] = useState('');
+  const [minResponsesForSummary, setMinResponsesForSummary] = useState(3);
   const [questions, setQuestions] = useState<Question[]>([
     {
       id: 'q_init_1',
@@ -72,8 +76,8 @@ export function CreateSurveyView({
 
   const handleSubmit = (status: 'DRAFT' | 'PUBLISHED') => {
     setErrorMsg(null);
-    if (!title.trim() || title.trim().length < 3) {
-      setErrorMsg('Survey Title must be at least 3 characters.');
+    if (!title.trim() || title.trim().length < 5) {
+      setErrorMsg('Survey Title must be at least 5 characters.');
       return;
     }
 
@@ -93,7 +97,10 @@ export function CreateSurveyView({
       description: description.trim() || undefined,
       status,
       ownerEmail,
+      minResponsesForSummary,
       questions,
+      responseMode,
+      closesAt: closesAt || undefined,
     });
   };
 
@@ -216,6 +223,78 @@ export function CreateSurveyView({
                 fontFamily: 'inherit',
               }}
             />
+          </div>
+
+          {/* F-13 Response Mode & F-15 ClosesAt (Scheduled Expiry) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                Response Mode (F-13)
+              </label>
+              <select
+                value={responseMode}
+                onChange={(e) => setResponseMode(e.target.value as 'IDENTIFIED' | 'ANONYMOUS')}
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  padding: '0.625rem 0.875rem',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '0.95rem',
+                  backgroundColor: '#ffffff',
+                }}
+              >
+                <option value="IDENTIFIED">Identified (Standard)</option>
+                <option value="ANONYMOUS">Anonymous (Redacted Respondent ID)</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                Scheduled Expiry Deadline (F-15 ClosesAt)
+              </label>
+              <input
+                type="datetime-local"
+                value={closesAt}
+                onChange={(e) => setClosesAt(e.target.value)}
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  padding: '0.625rem 0.875rem',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '0.95rem',
+                }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+              Minimum Response Privacy Quorum (k-Anonymity)
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={minResponsesForSummary}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  setMinResponsesForSummary(isNaN(val) ? 3 : Math.min(20, Math.max(1, val)));
+                }}
+                style={{
+                  width: '90px',
+                  padding: '0.5rem 0.75rem',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '0.95rem',
+                }}
+              />
+              <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                responses required before aggregate analytics are visible (range: 1 - 20, default: 3)
+              </span>
+            </div>
           </div>
         </div>
 

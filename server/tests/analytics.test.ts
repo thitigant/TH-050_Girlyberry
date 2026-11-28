@@ -63,6 +63,7 @@ describe('F-08 / F-12 Aggregate Survey Results Summary', () => {
         title: 'CPE 334 Lab 4 Course Feedback',
         description: 'Aggregate testing survey',
         status: SurveyStatus.PUBLISHED,
+        minResponsesForSummary: 1,
         publishedAt: new Date(timestamp - 10000),
         updatedAt: new Date(),
         Question: {
@@ -160,15 +161,16 @@ describe('F-08 / F-12 Aggregate Survey Results Summary', () => {
       },
     });
 
-    // 3. Create a survey with ZERO responses (to verify graceful handling)
+    // 3. Create a survey with ZERO responses (to verify graceful handling on closed survey)
     const sEmpty = await prisma.survey.create({
       data: {
         id: `srv_anly_empty_${timestamp}`,
         ownerId: owner1Id,
         title: 'Survey With No Responses Yet',
         description: 'Zero response edge case',
-        status: SurveyStatus.PUBLISHED,
+        status: SurveyStatus.CLOSED,
         publishedAt: new Date(timestamp - 1000),
+        closedAt: new Date(timestamp - 500),
         updatedAt: new Date(),
         Question: {
           create: [
@@ -374,5 +376,228 @@ describe('F-08 / F-12 Aggregate Survey Results Summary', () => {
       expect(res.body.data.surveyId).toBe(activeSurveyId);
       expect(res.body.data.totalResponses).toBe(2);
     });
+  });
+
+  describe('Lab 7 (#35): F-03 / F-12 Minimum Response Privacy Quorum & Lifecycle Gate', () => {
+    const createdLab7SurveyIds: string[] = [];
+
+    afterAll(async () => {
+      if (createdLab7SurveyIds.length > 0) {
+        await prisma.answer.deleteMany({
+          where: { Question: { surveyId: { in: createdLab7SurveyIds } } },
+        });
+        await prisma.response.deleteMany({
+          where: { surveyId: { in: createdLab7SurveyIds } },
+        });
+        await prisma.survey.deleteMany({
+          where: { id: { in: createdLab7SurveyIds } },
+        });
+      }
+    });
+
+    it('TEST-L7-01 (AC-L7-01): should default minResponsesForSummary to 3 and accept valid bounds 1 and 20', async () => {
+      const defaultRes = await request(app)
+        .post('/api/surveys')
+        .set('Authorization', `Bearer ${owner1Token}`)
+        .send({
+          title: 'Lab 7 Default Quorum Survey',
+          questions: [{ text: 'Rate clarity', type: 'RATING', isRequired: true }],
+        });
+
+      expect(defaultRes.status).toBe(201);
+      if (defaultRes.body.data?.id) createdLab7SurveyIds.push(defaultRes.body.data.id);
+      expect(defaultRes.body.data.minResponsesForSummary).toBe(3);
+
+      const minRes = await request(app)
+        .post('/api/surveys')
+        .set('Authorization', `Bearer ${owner1Token}`)
+        .send({
+          title: 'Lab 7 Min Boundary Quorum Survey',
+          minResponsesForSummary: 1,
+          questions: [{ text: 'Rate clarity', type: 'RATING', isRequired: true }],
+        });
+
+      expect(minRes.status).toBe(201);
+      if (minRes.body.data?.id) createdLab7SurveyIds.push(minRes.body.data.id);
+      expect(minRes.body.data.minResponsesForSummary).toBe(1);
+
+      const maxRes = await request(app)
+        .post('/api/surveys')
+        .set('Authorization', `Bearer ${owner1Token}`)
+        .send({
+          title: 'Lab 7 Max Boundary Quorum Survey',
+          minResponsesForSummary: 20,
+          questions: [{ text: 'Rate clarity', type: 'RATING', isRequired: true }],
+        });
+
+      expect(maxRes.status).toBe(201);
+      if (maxRes.body.data?.id) createdLab7SurveyIds.push(maxRes.body.data.id);
+      expect(maxRes.body.data.minResponsesForSummary).toBe(20);
+    }, 15000);
+
+    it('TEST-L7-02 (AC-L7-01): should reject minResponsesForSummary < 1, > 20, or non-integer with 400 INVALID_PAYLOAD', async () => {
+      for (const badThreshold of [0, 21, 2.5]) {
+        const res = await request(app)
+          .post('/api/surveys')
+          .set('Authorization', `Bearer ${owner1Token}`)
+          .send({
+            title: `Invalid Quorum ${badThreshold}`,
+            minResponsesForSummary: badThreshold,
+            questions: [{ text: 'Rate clarity', type: 'RATING', isRequired: true }],
+          });
+
+        if (res.body?.data?.id) createdLab7SurveyIds.push(res.body.data.id);
+        expect(res.status).toBe(400);
+        expect(res.body.error?.code).toBe('INVALID_PAYLOAD');
+      }
+    });
+
+    it('TEST-L7-03 & TEST-L7-04 (AC-L7-02, AC-L7-03): should lock PUBLISHED analytics below quorum (2 < 3) and unlock at exact quorum boundary (3 == 3)', async () => {
+      const createRes = await request(app)
+        .post('/api/surveys')
+        .set('Authorization', `Bearer ${owner1Token}`)
+        .send({
+          title: 'Lab 7 Quorum Gate Boundary Test',
+          minResponsesForSummary: 3,
+          questions: [
+            { text: 'Course Rating', type: 'RATING', isRequired: true },
+            { text: 'Anonymous Comment', type: 'SHORT_TEXT', isRequired: true },
+          ],
+        });
+
+      expect(createRes.status).toBe(201);
+      const surveyId = createRes.body.data.id;
+      createdLab7SurveyIds.push(surveyId);
+      const qRateId = createRes.body.data.Question[0].id;
+      const qTextId = createRes.body.data.Question[1].id;
+
+      const pubRes = await request(app)
+        .post(`/api/surveys/${surveyId}/publish`)
+        .set('Authorization', `Bearer ${owner1Token}`);
+      expect(pubRes.status).toBe(200);
+
+      const s2Token = signToken({ id: student2Id, email: 'student2@unipulse.edu', role: 'RESPONDENT' }).token;
+
+      // 2 responses submitted (< threshold 3)
+      await request(app)
+        .post(`/api/surveys/${surveyId}/responses`)
+        .set('Authorization', `Bearer ${student1Token}`)
+        .send({
+          answers: [
+            { questionId: qRateId, ratingValue: 5 },
+            { questionId: qTextId, textValue: 'Private student 1 feedback' },
+          ],
+        })
+        .expect(201);
+
+      await request(app)
+        .post(`/api/surveys/${surveyId}/responses`)
+        .set('Authorization', `Bearer ${s2Token}`)
+        .send({
+          answers: [
+            { questionId: qRateId, ratingValue: 4 },
+            { questionId: qTextId, textValue: 'Private student 2 feedback' },
+          ],
+        })
+        .expect(201);
+
+      // TEST-L7-03 (Boundary: totalResponses = minResponsesForSummary - 1 = 2) -> LOCKED
+      const lockedRes = await request(app)
+        .get(`/api/surveys/${surveyId}/summary`)
+        .set('Authorization', `Bearer ${owner1Token}`);
+
+      expect(lockedRes.status).toBe(200);
+      expect(lockedRes.body.data.totalResponses).toBe(2);
+      expect(lockedRes.body.data.minResponsesForSummary).toBe(3);
+      expect(lockedRes.body.data.privacyLocked).toBe(true);
+      expect(typeof lockedRes.body.data.privacyReason).toBe('string');
+      expect(lockedRes.body.data.privacyReason.length).toBeGreaterThan(10);
+      expect(lockedRes.body.data.questions).toEqual([]);
+
+      // TEST-L7-06: Authorization must run BEFORE quorum check
+      const studentRes = await request(app)
+        .get(`/api/surveys/${surveyId}/summary`)
+        .set('Authorization', `Bearer ${student1Token}`);
+      expect(studentRes.status).toBe(403);
+      expect(studentRes.body.error.code).toBe('FORBIDDEN_ROLE');
+
+      const otherOwnerRes = await request(app)
+        .get(`/api/surveys/${surveyId}/summary`)
+        .set('Authorization', `Bearer ${owner2Token}`);
+      expect(otherOwnerRes.status).toBe(403);
+      expect(otherOwnerRes.body.error.code).toBe('FORBIDDEN_OWNERSHIP');
+
+      // 3rd response reaches exact quorum boundary (3 === 3) -> UNLOCKED
+      await request(app)
+        .post(`/api/surveys/${surveyId}/responses`)
+        .set('Authorization', `Bearer ${owner2Token}`)
+        .send({
+          answers: [
+            { questionId: qRateId, ratingValue: 3 },
+            { questionId: qTextId, textValue: 'Third response unlocks quorum' },
+          ],
+        })
+        .expect(201);
+
+      // TEST-L7-04 (Exact boundary: totalResponses === minResponsesForSummary === 3) -> UNLOCKED
+      const unlockedRes = await request(app)
+        .get(`/api/surveys/${surveyId}/summary`)
+        .set('Authorization', `Bearer ${owner1Token}`);
+
+      expect(unlockedRes.status).toBe(200);
+      expect(unlockedRes.body.data.totalResponses).toBe(3);
+      expect(unlockedRes.body.data.minResponsesForSummary).toBe(3);
+      expect(unlockedRes.body.data.privacyLocked).toBe(false);
+      expect(unlockedRes.body.data.privacyReason).toBeNull();
+      expect(unlockedRes.body.data.questions).toHaveLength(2);
+    }, 15000);
+
+    it('TEST-L7-05 (AC-L7-04): should unlock analytics below quorum once owner transitions survey to CLOSED', async () => {
+      const createRes = await request(app)
+        .post('/api/surveys')
+        .set('Authorization', `Bearer ${owner1Token}`)
+        .send({
+          title: 'Lab 7 Lifecycle Close Override Test',
+          minResponsesForSummary: 3,
+          questions: [{ text: 'Overall feedback', type: 'SHORT_TEXT', isRequired: true }],
+        });
+
+      expect(createRes.status).toBe(201);
+      const surveyId = createRes.body.data.id;
+      createdLab7SurveyIds.push(surveyId);
+      const qTextId = createRes.body.data.Question[0].id;
+
+      await request(app)
+        .post(`/api/surveys/${surveyId}/publish`)
+        .set('Authorization', `Bearer ${owner1Token}`)
+        .expect(200);
+
+      await request(app)
+        .post(`/api/surveys/${surveyId}/responses`)
+        .set('Authorization', `Bearer ${student1Token}`)
+        .send({
+          answers: [{ questionId: qTextId, textValue: 'Single response before close' }],
+        })
+        .expect(201);
+
+      const closedRes = await request(app)
+        .post(`/api/surveys/${surveyId}/close`)
+        .set('Authorization', `Bearer ${owner1Token}`);
+      expect(closedRes.status).toBe(200);
+
+      const summaryAfterClose = await request(app)
+        .get(`/api/surveys/${surveyId}/summary`)
+        .set('Authorization', `Bearer ${owner1Token}`);
+
+      expect(summaryAfterClose.status).toBe(200);
+      expect(summaryAfterClose.body.data.status).toBe('CLOSED');
+      expect(summaryAfterClose.body.data.totalResponses).toBe(1);
+      expect(summaryAfterClose.body.data.privacyLocked).toBe(false);
+      expect(summaryAfterClose.body.data.privacyReason).toBeNull();
+      expect(summaryAfterClose.body.data.questions).toHaveLength(1);
+      expect(summaryAfterClose.body.data.questions[0].summary.answers).toContain(
+        'Single response before close'
+      );
+    }, 15000);
   });
 });

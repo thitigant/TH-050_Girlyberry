@@ -21,6 +21,7 @@ export function OwnerSurveysView({
   onDeleteSurvey,
   onViewAnalytics,
   onOpenCreate,
+  onDuplicateSurvey,
 }: OwnerSurveysViewProps) {
   const [lifecycleError, setLifecycleError] = useState<string | null>(null);
 
@@ -47,7 +48,7 @@ export function OwnerSurveysView({
   };
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '0 1rem' }}>
+    <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '0 1rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
         <div>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
@@ -110,18 +111,18 @@ export function OwnerSurveysView({
         </div>
       )}
 
-      <div style={{ backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
+      <div style={{ backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #e2e8f0', overflowX: 'auto', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+        <table style={{ width: '100%', minWidth: '980px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
           <thead>
-            <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontWeight: 700 }}>
-              <th style={{ padding: '0.75rem 1rem' }}>Title & Category</th>
-              <th style={{ padding: '0.75rem 1rem' }}>Status</th>
-              <th style={{ padding: '0.75rem 1rem' }}>Response Mode</th>
-              <th style={{ padding: '0.75rem 1rem' }}>Deadline</th>
-              <th style={{ padding: '0.75rem 1rem' }}>Questions</th>
-              <th style={{ padding: '0.75rem 1rem' }}>Responses</th>
-              <th style={{ padding: '0.75rem 1rem' }}>Created</th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Actions</th>
+            <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              <th style={{ padding: '0.75rem 0.85rem' }}>Title & Category</th>
+              <th style={{ padding: '0.75rem 0.65rem' }}>Status</th>
+              <th style={{ padding: '0.75rem 0.65rem' }}>Response Mode</th>
+              <th style={{ padding: '0.75rem 0.65rem' }}>Deadline</th>
+              <th style={{ padding: '0.75rem 0.65rem' }}>Questions</th>
+              <th style={{ padding: '0.75rem 0.65rem' }}>Responses</th>
+              <th style={{ padding: '0.75rem 0.65rem' }}>Created</th>
+              <th style={{ padding: '0.75rem 0.85rem', textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -130,11 +131,11 @@ export function OwnerSurveysView({
               const totalResp = responseCounts[s.id] ?? (s.id === 'srv_cpe334_001' ? 24 : 0);
               return (
                 <tr key={s.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={{ padding: '0.85rem 1rem' }}>
-                    <div style={{ fontWeight: 700, color: '#0f172a' }}>{s.title}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{s.category} • ID: {s.id}</div>
+                  <td style={{ padding: '0.85rem 0.85rem', maxWidth: '280px' }}>
+                    <div style={{ fontWeight: 700, color: '#0f172a', lineHeight: 1.35 }}>{s.title}</div>
+                    <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '0.15rem' }}>{s.category} • ID: {s.id}</div>
                   </td>
-                  <td style={{ padding: '0.85rem 1rem' }}>
+                  <td style={{ padding: '0.85rem 0.65rem', whiteSpace: 'nowrap' }}>
                     <span
                       style={{
                         backgroundColor: badge.bg,
@@ -144,17 +145,22 @@ export function OwnerSurveysView({
                         borderRadius: '9999px',
                         fontSize: '0.75rem',
                         fontWeight: 700,
+                        display: 'inline-block',
                       }}
                     >
                       {s.status}
                     </span>
                   </td>
-                  <td style={{ padding: '0.85rem 1rem' }}>{s.responseMode ?? 'IDENTIFIED'}</td>
-                  <td style={{ padding: '0.85rem 1rem' }}>{s.closesAt ? new Date(s.closesAt).toLocaleDateString() : '-'}</td>
-                  <td style={{ padding: '0.85rem 1rem', color: '#475569' }}>
-                    {s.questions.length} questions
+                  <td style={{ padding: '0.85rem 0.65rem', whiteSpace: 'nowrap', fontSize: '0.82rem', fontWeight: 600, color: '#334155' }}>
+                    {s.responseMode ?? 'IDENTIFIED'}
                   </td>
-                  <td style={{ padding: '0.85rem 1rem' }}>
+                  <td style={{ padding: '0.85rem 0.65rem', whiteSpace: 'nowrap', fontSize: '0.82rem', color: '#475569' }}>
+                    {s.closesAt ? new Date(s.closesAt).toLocaleDateString() : '-'}
+                  </td>
+                  <td style={{ padding: '0.85rem 0.65rem', color: '#475569', whiteSpace: 'nowrap' }}>
+                    {s.questions.length} {s.questions.length === 1 ? 'question' : 'questions'}
+                  </td>
+                  <td style={{ padding: '0.85rem 0.65rem', whiteSpace: 'nowrap' }}>
                     <span
                       style={{
                         backgroundColor: totalResp > 0 ? '#eff6ff' : '#f8fafc',
@@ -164,29 +170,31 @@ export function OwnerSurveysView({
                         borderRadius: '9999px',
                         fontSize: '0.78rem',
                         fontWeight: 700,
+                        display: 'inline-block',
                       }}
                     >
                       {totalResp} {totalResp === 1 ? 'response' : 'responses'}
                     </span>
                   </td>
-                  <td style={{ padding: '0.85rem 1rem', color: '#64748b', fontSize: '0.8rem' }}>
+                  <td style={{ padding: '0.85rem 0.65rem', color: '#64748b', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
                     {new Date(s.createdAt).toLocaleDateString()}
                   </td>
-                  <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
-                    <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                  <td style={{ padding: '0.85rem 0.85rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <div style={{ display: 'inline-flex', gap: '0.4rem', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'nowrap' }}>
                       {s.status === 'DRAFT' && (
                         <button
                           type="button"
                           onClick={() => handlePublishClick(s)}
                           style={{
-                            padding: '0.35rem 0.75rem',
+                            padding: '0.38rem 0.7rem',
                             backgroundColor: '#16a34a',
                             color: '#ffffff',
                             border: 'none',
                             borderRadius: '5px',
                             fontWeight: 700,
-                            fontSize: '0.8rem',
+                            fontSize: '0.78rem',
                             cursor: 'pointer',
+                            whiteSpace: 'nowrap',
                           }}
                         >
                           Publish Survey
@@ -199,14 +207,15 @@ export function OwnerSurveysView({
                             type="button"
                             onClick={() => onCloseSurvey(s.id)}
                             style={{
-                              padding: '0.35rem 0.75rem',
+                              padding: '0.38rem 0.7rem',
                               backgroundColor: '#dc2626',
                               color: '#ffffff',
                               border: 'none',
                               borderRadius: '5px',
                               fontWeight: 700,
-                              fontSize: '0.8rem',
+                              fontSize: '0.78rem',
                               cursor: 'pointer',
+                              whiteSpace: 'nowrap',
                             }}
                           >
                             Close Survey
@@ -215,14 +224,15 @@ export function OwnerSurveysView({
                             type="button"
                             onClick={() => onViewAnalytics(s.id)}
                             style={{
-                              padding: '0.35rem 0.75rem',
+                              padding: '0.38rem 0.7rem',
                               backgroundColor: '#3b82f6',
                               color: '#ffffff',
                               border: 'none',
                               borderRadius: '5px',
                               fontWeight: 700,
-                              fontSize: '0.8rem',
+                              fontSize: '0.78rem',
                               cursor: 'pointer',
+                              whiteSpace: 'nowrap',
                             }}
                           >
                             Analytics 📊
@@ -235,19 +245,39 @@ export function OwnerSurveysView({
                           type="button"
                           onClick={() => onViewAnalytics(s.id)}
                           style={{
-                            padding: '0.35rem 0.75rem',
+                            padding: '0.38rem 0.7rem',
                             backgroundColor: '#475569',
                             color: '#ffffff',
                             border: 'none',
                             borderRadius: '5px',
                             fontWeight: 700,
-                            fontSize: '0.8rem',
+                            fontSize: '0.78rem',
                             cursor: 'pointer',
+                            whiteSpace: 'nowrap',
                           }}
                         >
                           View Results 📊
                         </button>
                       )}
+
+                      <button
+                        type="button"
+                        onClick={() => onDuplicateSurvey(s.id)}
+                        title={`Duplicate survey "${s.title}" as a new draft`}
+                        style={{
+                          padding: '0.38rem 0.6rem',
+                          backgroundColor: '#f8fafc',
+                          color: '#334155',
+                          border: '1px solid #cbd5e1',
+                          borderRadius: '5px',
+                          fontWeight: 700,
+                          fontSize: '0.78rem',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        Clone 📋
+                      </button>
 
                       {s.status === 'DRAFT' && (
                         <button
@@ -255,14 +285,15 @@ export function OwnerSurveysView({
                           onClick={() => onDeleteSurvey(s.id)}
                           title={`Delete draft survey "${s.title}"`}
                           style={{
-                            padding: '0.35rem 0.65rem',
+                            padding: '0.38rem 0.65rem',
                             backgroundColor: '#fff1f2',
                             color: '#be123c',
                             border: '1px solid #fecdd3',
                             borderRadius: '5px',
                             fontWeight: 700,
-                            fontSize: '0.8rem',
+                            fontSize: '0.78rem',
                             cursor: 'pointer',
+                            whiteSpace: 'nowrap',
                           }}
                         >
                           Delete 🗑️

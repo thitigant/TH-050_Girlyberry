@@ -318,6 +318,11 @@ export class SurveyService {
       throw new AppError(403, 'FORBIDDEN_OWNERSHIP', 'Access denied. You do not own this survey.');
     }
 
+    // BR-14: Only DRAFT surveys can be deleted
+    if (survey.status !== SurveyStatus.DRAFT) {
+      throw new AppError(400, 'SURVEY_NOT_DRAFT', 'Only DRAFT surveys can be deleted.');
+    }
+
     await prisma.survey.delete({
       where: { id: surveyId },
     });

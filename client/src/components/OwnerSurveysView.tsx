@@ -249,23 +249,25 @@ export function OwnerSurveysView({
                         </button>
                       )}
 
-                      <button
-                        type="button"
-                        onClick={() => onDeleteSurvey(s.id)}
-                        title={`Delete survey "${s.title}"`}
-                        style={{
-                          padding: '0.35rem 0.65rem',
-                          backgroundColor: '#fff1f2',
-                          color: '#be123c',
-                          border: '1px solid #fecdd3',
-                          borderRadius: '5px',
-                          fontWeight: 700,
-                          fontSize: '0.8rem',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Delete 🗑️
-                      </button>
+                      {s.status === 'DRAFT' && (
+                        <button
+                          type="button"
+                          onClick={() => onDeleteSurvey(s.id)}
+                          title={`Delete draft survey "${s.title}"`}
+                          style={{
+                            padding: '0.35rem 0.65rem',
+                            backgroundColor: '#fff1f2',
+                            color: '#be123c',
+                            border: '1px solid #fecdd3',
+                            borderRadius: '5px',
+                            fontWeight: 700,
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Delete 🗑️
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

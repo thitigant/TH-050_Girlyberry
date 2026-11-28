@@ -76,8 +76,8 @@ export function CreateSurveyView({
 
   const handleSubmit = (status: 'DRAFT' | 'PUBLISHED') => {
     setErrorMsg(null);
-    if (!title.trim() || title.trim().length < 3) {
-      setErrorMsg('Survey Title must be at least 3 characters.');
+    if (!title.trim() || title.trim().length < 5) {
+      setErrorMsg('Survey Title must be at least 5 characters.');
       return;
     }
 

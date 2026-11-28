@@ -39,7 +39,7 @@ export const createSurveySchema = z.object({
   title: z
     .string()
     .trim()
-    .min(1, 'Title must be between 1 and 150 characters')
+    .min(5, 'Title must be between 5 and 150 characters')
     .max(150, 'Title cannot exceed 150 characters'),
   description: z.string().trim().max(1000).optional(),
   responseMode: z.enum(['IDENTIFIED', 'ANONYMOUS']).optional().default('IDENTIFIED'),
